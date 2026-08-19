@@ -9,6 +9,19 @@ import cv2
 import numpy as np
 import unicodedata
 import re
+import sys
+
+def get_app_dir():
+    """Lấy đường dẫn thư mục thực tế chứa file .exe (hoặc script main.py)"""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+def get_bundle_dir():
+    """Lấy đường dẫn chứa tài nguyên nội bộ đóng gói bởi PyInstaller (_MEIPASS)"""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
 
 # Thử import ppadb nếu có sẵn trong hệ thống
 try:
@@ -213,31 +226,40 @@ class ToolLDPlayerGUI(ctk.CTk):
     def _get_server_options(self) -> list:
         """Danh sách tùy chọn các máy chủ (Điêu Thuyền, Triệu Vân...) và tự động quét các file server_*.png mới"""
         servers = ["Điêu Thuyền", "Triệu Vân"]
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        assets_dir = os.path.join(base_dir, "assets")
-        server_dir = os.path.join(assets_dir, "server")
-        
-        for search_dir in [server_dir, assets_dir]:
-            if os.path.exists(search_dir):
-                try:
-                    for f in sorted(os.listdir(search_dir)):
-                        if f.lower().startswith("server_") and f.lower().endswith(".png"):
-                            raw_name = f[7:-4]
-                            if raw_name not in ["dieuthuyen", "trieuvan"]:
-                                title_name = raw_name.replace("_", " ").title()
-                                if title_name not in servers:
-                                    servers.append(title_name)
-                except Exception:
-                    pass
+        for base in [get_bundle_dir(), get_app_dir()]:
+            assets_dir = os.path.join(base, "assets")
+            server_dir = os.path.join(assets_dir, "server")
+            for search_dir in [server_dir, assets_dir]:
+                if os.path.exists(search_dir):
+                    try:
+                        for f in sorted(os.listdir(search_dir)):
+                            if f.lower().startswith("server_") and f.lower().endswith(".png"):
+                                raw_name = f[7:-4]
+                                if raw_name not in ["dieuthuyen", "trieuvan"]:
+                                    title_name = raw_name.replace("_", " ").title()
+                                    if title_name not in servers:
+                                        servers.append(title_name)
+                    except Exception:
+                        pass
         return servers
 
 
     def _get_nhanvat_options(self) -> list:
         """Danh sách tên nhân vật quét động từ các file ảnh thực tế trong folder assets/nhanvat"""
         names = []
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        assets_dir = os.path.join(base_dir, "assets")
-        nhanvat_dir = os.path.join(assets_dir, "nhanvat")
+        for base in [get_bundle_dir(), get_app_dir()]:
+            assets_dir = os.path.join(base, "assets")
+            nhanvat_dir = os.path.join(assets_dir, "nhanvat")
+            if os.path.exists(nhanvat_dir):
+                try:
+                    for f in sorted(os.listdir(nhanvat_dir)):
+                        if f.lower().endswith(".png"):
+                            char_name = f[:-4]
+                            if char_name not in names:
+                                names.append(char_name)
+                except Exception:
+                    pass
+        return names
 
         if not os.path.exists(nhanvat_dir):
             try:
@@ -481,7 +503,7 @@ class ToolLDPlayerGUI(ctk.CTk):
             if hasattr(self, 'combo_ld_tabs'):
                 config["selected_tab"] = self.combo_ld_tabs.get()
 
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+            config_path = os.path.join(get_app_dir(), "config.json")
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
         except Exception as e:
@@ -489,7 +511,7 @@ class ToolLDPlayerGUI(ctk.CTk):
 
     def load_config(self):
         """Khôi phục toàn bộ cấu hình máy chủ & checkbox từ config.json (Các công tắc & nút Tạm Dừng bắt buộc giữ OFF khi mở lại)"""
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        config_path = os.path.join(get_app_dir(), "config.json")
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
@@ -5522,35 +5544,33 @@ class ToolLDPlayerGUI(ctk.CTk):
 
     def _find_template_on_screen(self, dnconsole_path: str, tab_index: str, template_filename: str, threshold: float = 0.85, check_color: bool = False):
         """👁️ Mắt Thần OpenCV: Khớp vị trí hình ảnh mẫu .png trong thư mục con assets/ với độ chính xác cao & kiểm tra độ sáng màu sắc nút"""
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        assets_dir = os.path.join(base_dir, "assets")
-        os.makedirs(assets_dir, exist_ok=True)
-        
         clean_name = os.path.basename(template_filename)
-        # Đường dẫn file ảnh mẫu (.png) - Tìm kiếm linh hoạt trong assets/, card_b, card_a..f, login, server...
-        possible_paths = [
-            os.path.join(assets_dir, template_filename),
-            os.path.join(assets_dir, "card_b", clean_name),
-            os.path.join(assets_dir, "card_a", clean_name),
-            os.path.join(assets_dir, "card_c", clean_name),
-            os.path.join(assets_dir, "card_d", clean_name),
-            os.path.join(assets_dir, "card_e", clean_name),
-            os.path.join(assets_dir, "card_f", clean_name),
-            os.path.join(assets_dir, "login", clean_name),
-            os.path.join(assets_dir, "server", clean_name),
-            os.path.join(base_dir, template_filename)
-        ]
-        # Tự động quét thêm bất kỳ thư mục con nào khác trong assets/ nếu có
-        try:
-            if os.path.exists(assets_dir):
-                for sub in os.listdir(assets_dir):
-                    sub_dir = os.path.join(assets_dir, sub)
-                    if os.path.isdir(sub_dir):
-                        p = os.path.join(sub_dir, template_filename)
-                        if p not in possible_paths:
-                            possible_paths.append(p)
-        except Exception:
-            pass
+        possible_paths = []
+
+        for base in [get_bundle_dir(), get_app_dir()]:
+            assets_dir = os.path.join(base, "assets")
+            possible_paths.extend([
+                os.path.join(assets_dir, template_filename),
+                os.path.join(assets_dir, "card_b", clean_name),
+                os.path.join(assets_dir, "card_a", clean_name),
+                os.path.join(assets_dir, "card_c", clean_name),
+                os.path.join(assets_dir, "card_d", clean_name),
+                os.path.join(assets_dir, "card_e", clean_name),
+                os.path.join(assets_dir, "card_f", clean_name),
+                os.path.join(assets_dir, "login", clean_name),
+                os.path.join(assets_dir, "server", clean_name),
+                os.path.join(base, template_filename)
+            ])
+            try:
+                if os.path.exists(assets_dir):
+                    for sub in os.listdir(assets_dir):
+                        sub_dir = os.path.join(assets_dir, sub)
+                        if os.path.isdir(sub_dir):
+                            p = os.path.join(sub_dir, template_filename)
+                            if p not in possible_paths:
+                                possible_paths.append(p)
+            except Exception:
+                pass
 
         tmpl_path = None
         for p in possible_paths:

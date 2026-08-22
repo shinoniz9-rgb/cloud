@@ -10,6 +10,8 @@ import numpy as np
 import unicodedata
 import re
 import sys
+import tempfile
+import multiprocessing
 
 def get_app_dir():
     """Lấy đường dẫn thư mục thực tế chứa file .exe (hoặc script main.py)"""
@@ -5535,8 +5537,13 @@ class ToolLDPlayerGUI(ctk.CTk):
             self.after(0, self.log_error, f"⚠️ Chưa có file ảnh mẫu '{template_filename}' trong các thư mục assets/ (card_a..f, login, server...)!")
             return None, None  # Chưa có file ảnh mẫu trong assets/
 
-        # File ảnh tạm thời chụp màn hình lưu gọn gàng trong thư mục assets/
-        temp_local = os.path.join(assets_dir, f"temp_cap_{tab_index}.png")
+        # File ảnh tạm thời chụp màn hình lưu trong thư mục TEMP an toàn của hệ điều hành
+        temp_dir = os.path.join(tempfile.gettempdir(), "ts_origin_temp")
+        try:
+            os.makedirs(temp_dir, exist_ok=True)
+        except Exception:
+            pass
+        temp_local = os.path.join(temp_dir, f"temp_cap_{tab_index}.png")
         
         is_nkn = ("nkn" in template_filename.lower()) or ("diemdanh" in template_filename.lower()) or ("veboss" in template_filename.lower())
         max_attempts = 3 if is_nkn else 1
@@ -5663,5 +5670,6 @@ class ToolLDPlayerGUI(ctk.CTk):
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     app = ToolLDPlayerGUI()
     app.mainloop()

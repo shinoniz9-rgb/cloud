@@ -3753,6 +3753,14 @@ class ToolLDPlayerGUI(ctk.CTk):
                 if self._should_stop_card_A(): return
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 320 25"])
                 time.sleep(0.4)
+            else:
+                self.after(0, self.log_info, "⚠️ [Vé] Sau khi vuốt xuống 5 lần và vuốt lên 5 lần vẫn không thấy Vé Boss ➔ Quét tap 'card_top/login/login_x.png' (75%) đóng bảng túi ➔ Hoãn 0.4s ➔ Hoàn thành Card A.")
+                if self._should_stop_card_A(): return
+                lx_x2, lx_y2 = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
+                if lx_x2 is not None and lx_y2 is not None:
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x2} {lx_y2}"])
+                    time.sleep(0.4)
+                return
 
             # Quét nút login_x.png (75%)
             if self._should_stop_card_A(): return

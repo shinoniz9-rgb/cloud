@@ -13,6 +13,8 @@ import sys
 import tempfile
 import multiprocessing
 from tkinter import filedialog
+import webbrowser
+import web_server
 
 def get_app_dir():
     """Lấy đường dẫn thư mục thực tế chứa file .exe (hoặc script main.py)"""
@@ -44,9 +46,8 @@ class ToolLDPlayerGUI(ctk.CTk):
 
         # --- CẤU HÌNH CỬA SỔ CHÍNH ---
         self.title("TS Origin-Control")
-        self.geometry("515x475")
-        self.minsize(500, 455)
-        self._center_window(515, 475)
+        self.geometry("515x520")
+        self.minsize(500, 480)
 
         # Đăng ký sự kiện nút X (Thu nhỏ xuống khay hệ thống)
         self.tray_icon = None
@@ -110,13 +111,17 @@ class ToolLDPlayerGUI(ctk.CTk):
         # Nạp cấu hình đã lưu
         self.load_config()
 
-        # Căn giữa cửa sổ ứng dụng trên màn hình Desktop
-        self._center_window(515, 475)
+        # Căn giữa cửa sổ ứng dụng trên màn hình Desktop (Kích thước chuẩn 515x520)
+        self._center_window(515, 520)
 
         # Quét danh sách LDPlayer lần đầu tiên
         self.refresh_ld_tabs_async()
 
-    def _center_window(self, width: int = 515, height: int = 475):
+        # Khởi tạo bộ nhớ log thời gian thực & Kích hoạt Web Server điều khiển từ xa
+        self.recent_logs = []
+        self.after(600, lambda: web_server.start_web_server(self, port=8080))
+
+    def _center_window(self, width: int = 515, height: int = 520):
         """Căn giữa cửa sổ ứng dụng trên màn hình Desktop"""
         self.update_idletasks()
         screen_width = self.winfo_screenwidth()
@@ -189,6 +194,11 @@ class ToolLDPlayerGUI(ctk.CTk):
         self.after(0, self._destroy_app_completely)
 
     def _destroy_app_completely(self):
+        try:
+            if hasattr(self, 'web_server') and self.web_server:
+                self.web_server.shutdown()
+        except Exception:
+            pass
         try:
             self.save_config()
         except Exception:
@@ -776,7 +786,108 @@ class ToolLDPlayerGUI(ctk.CTk):
             hover_color="#0284C7",
             command=self._browse_ld_path
         )
-        self.btn_browse_ld.grid(row=0, column=1, padx=(4, 8), pady=5, sticky="e")
+        self.btn_browse_ld.grid(row=0, column=1, padx=(4, 8), pady=(5, 2), sticky="e")
+
+        # Row 1: Khung Đường Link Web Server Điều Khiển Từ Xa
+        self.frame_web_bar = ctk.CTkFrame(self.card_path, fg_color="#111827", corner_radius=6, border_width=1, border_color="#374151")
+        self.frame_web_bar.grid(row=1, column=0, columnspan=2, padx=8, pady=(2, 6), sticky="ew")
+        self.frame_web_bar.grid_columnconfigure(0, weight=1)
+        self.frame_web_bar.grid_columnconfigure((1, 2, 3), weight=0)
+
+        self.current_web_url = f"http://{getattr(self, 'web_ip', '127.0.0.1')}:{getattr(self, 'web_port', 8080)}"
+
+        self.lbl_web_url = ctk.CTkLabel(
+            self.frame_web_bar,
+            text=f"🌐 Web: {self.current_web_url}",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color="#38BDF8",
+            anchor="w"
+        )
+        self.lbl_web_url.grid(row=0, column=0, padx=(8, 4), pady=4, sticky="w")
+
+        self.btn_copy_url = ctk.CTkButton(
+            self.frame_web_bar,
+            text="Sao Chép",
+            width=65,
+            height=22,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color="#FFFFFF",
+            fg_color="#374151",
+            hover_color="#4B5563",
+            command=self._copy_web_url
+        )
+        self.btn_copy_url.grid(row=0, column=1, padx=2, pady=4)
+
+        self.btn_open_web = ctk.CTkButton(
+            self.frame_web_bar,
+            text="Mở Web",
+            width=60,
+            height=22,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color="#FFFFFF",
+            fg_color="#059669",
+            hover_color="#047857",
+            command=self._open_web_in_browser
+        )
+        self.btn_open_web.grid(row=0, column=2, padx=2, pady=4)
+
+        self.btn_online_tunnel = ctk.CTkButton(
+            self.frame_web_bar,
+            text="Tạo Link 4G",
+            width=80,
+            height=22,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color="#FFFFFF",
+            fg_color="#EA580C",
+            hover_color="#C2410C",
+            command=self._start_online_tunnel
+        )
+        self.btn_online_tunnel.grid(row=0, column=3, padx=(2, 6), pady=4)
+
+    def _copy_web_url(self):
+        """Sao chép đường dẫn Web Server vào Clipboard"""
+        url = getattr(self, 'current_web_url', '')
+        if url:
+            self.clipboard_clear()
+            self.clipboard_append(url)
+            self.log_info(f"📋 Đã sao chép đường link Web: {url}")
+
+    def _open_web_in_browser(self):
+        """Mở đường link Web trên trình duyệt mặc định của máy tính"""
+        url = getattr(self, 'current_web_url', '')
+        if url:
+            webbrowser.open(url)
+            self.log_info(f"🌐 Đang mở Web Dashboard trên trình duyệt: {url}")
+
+    def _start_online_tunnel(self):
+        """Khởi động Cloudflare Tunnel để tạo link truy cập từ xa (4G/Internet)"""
+        self.btn_online_tunnel.configure(text="Đang kết nối...", state="disabled")
+        web_server.start_cloudflare_tunnel(self)
+
+    def _update_web_url_ui(self, url: str, is_public_4g: bool = False):
+        """Cập nhật đường link Web lên thanh hiển thị trên GUI"""
+        self.current_web_url = url
+        is_4g = is_public_4g or url.startswith("https://")
+        if hasattr(self, 'lbl_web_url'):
+            prefix = "4G" if is_4g else "Wifi"
+            self.lbl_web_url.configure(text=f"🌐 {prefix}: {url}")
+        if hasattr(self, 'btn_online_tunnel'):
+            if is_4g:
+                self.btn_online_tunnel.configure(text="Đã Bật 4G", state="disabled", fg_color="#059669")
+                try:
+                    self.clipboard_clear()
+                    self.clipboard_append(url)
+                    self.log_info(f"📋 Đã tự động sao chép đường link 4G vào Clipboard: {url}")
+                except Exception:
+                    pass
+            else:
+                self.btn_online_tunnel.configure(text="Tạo Link 4G", state="normal", fg_color="#EA580C")
+
+    def _on_tunnel_failed(self):
+        """Xử lý khi không thể tạo tunnel 4G"""
+        if hasattr(self, 'btn_online_tunnel'):
+            self.btn_online_tunnel.configure(text="Tạo Lại 4G", state="normal", fg_color="#EA580C")
+        self.log_error("Không thể tạo đường link 4G. Vui lòng kiểm tra kết nối mạng và thử lại.")
 
     def _browse_ld_path(self):
         """Mở hộp thoại chọn thư mục LDPlayer9"""
@@ -832,9 +943,9 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.save_config()
                 return
 
-            dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
+            dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
             if not os.path.exists(dnconsole_path):
-                dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
+                dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
 
             if not os.path.exists(dnconsole_path):
                 self.log_error(f"Không tìm thấy ldconsole/dnconsole tại: {self.ld_path}")
@@ -901,9 +1012,9 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.save_config()
                 return
 
-            dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
+            dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
             if not os.path.exists(dnconsole_path):
-                dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
+                dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
 
             if not os.path.exists(dnconsole_path):
                 self.log_error(f"Không tìm thấy ldconsole/dnconsole tại: {self.ld_path}")
@@ -1515,6 +1626,12 @@ class ToolLDPlayerGUI(ctk.CTk):
         """Cập nhật thông tin lên thanh trạng thái & ô ghi Log & tự động xuất ra file app.log"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_line = f"[{timestamp}] ℹ️ {message}"
+        if not hasattr(self, 'recent_logs'):
+            self.recent_logs = []
+        self.recent_logs.append(log_line)
+        if len(self.recent_logs) > 60:
+            self.recent_logs.pop(0)
+
         if hasattr(self, 'lbl_status'):
             self.lbl_status.configure(text=f"Thông báo: {message}")
         if hasattr(self, 'txt_log'):
@@ -1533,6 +1650,12 @@ class ToolLDPlayerGUI(ctk.CTk):
         """Cập nhật lỗi lên thanh trạng thái & ô ghi Log & tự động xuất ra file app.log"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_line = f"[{timestamp}] ❌ {message}"
+        if not hasattr(self, 'recent_logs'):
+            self.recent_logs = []
+        self.recent_logs.append(log_line)
+        if len(self.recent_logs) > 60:
+            self.recent_logs.pop(0)
+
         if hasattr(self, 'lbl_status'):
             self.lbl_status.configure(text=f"Lỗi: {message}")
         if hasattr(self, 'txt_log'):
@@ -1557,34 +1680,39 @@ class ToolLDPlayerGUI(ctk.CTk):
                 tab_idx = int(cmd_list[idx_pos])
                 raw_subcmd = str(cmd_list[cmd_pos]).strip()
 
-                device_id = f"emulator-{5554 + (tab_idx * 2)}"
                 adb_path = os.path.join(self.ld_path, "adb.exe")
 
                 if os.path.exists(adb_path):
-                    if raw_subcmd.lower().startswith("pull "):
-                        parts = raw_subcmd.split(maxsplit=2)
-                        if len(parts) >= 3:
-                            remote_p = parts[1].strip('"')
-                            local_p = parts[2].strip('"')
-                            direct_adb_cmd = [adb_path, "-s", device_id, "pull", remote_p, local_p]
-                        else:
-                            direct_adb_cmd = [adb_path, "-s", device_id] + raw_subcmd.split()
-                    else:
-                        subcmd_parts = raw_subcmd.split()
-                        if subcmd_parts and subcmd_parts[0].lower() == "shell":
-                            subcmd_parts = subcmd_parts[1:]
-                        direct_adb_cmd = [adb_path, "-s", device_id, "shell"] + subcmd_parts
-                        
                     creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
                     kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "creationflags": creation_flags}
                     if text:
                         kwargs["text"] = True
                         kwargs["encoding"] = "utf-8"
                         kwargs["errors"] = "ignore"
-                    
-                    res = subprocess.run(direct_adb_cmd, **kwargs)
-                    if res.returncode == 0:
-                        return res
+
+                    candidate_devices = [
+                        f"127.0.0.1:{5555 + (tab_idx * 2)}",
+                        f"emulator-{5554 + (tab_idx * 2)}"
+                    ]
+
+                    for device_id in candidate_devices:
+                        if raw_subcmd.lower().startswith("pull "):
+                            parts = raw_subcmd.split(maxsplit=2)
+                            if len(parts) >= 3:
+                                remote_p = parts[1].strip('"')
+                                local_p = parts[2].strip('"')
+                                direct_adb_cmd = [adb_path, "-s", device_id, "pull", remote_p, local_p]
+                            else:
+                                direct_adb_cmd = [adb_path, "-s", device_id] + raw_subcmd.split()
+                        else:
+                            subcmd_parts = raw_subcmd.split()
+                            if subcmd_parts and subcmd_parts[0].lower() == "shell":
+                                subcmd_parts = subcmd_parts[1:]
+                            direct_adb_cmd = [adb_path, "-s", device_id, "shell"] + subcmd_parts
+
+                        res = subprocess.run(direct_adb_cmd, timeout=15, **kwargs)
+                        if res.returncode == 0:
+                            return res
             except Exception:
                 pass
 
@@ -1601,11 +1729,11 @@ class ToolLDPlayerGUI(ctk.CTk):
             kwargs["errors"] = "ignore"
 
         try:
-            return subprocess.run(cmd_list, **kwargs)
+            return subprocess.run(cmd_list, timeout=15, **kwargs)
         except OSError as e:
             if getattr(e, 'winerror', None) == 740 or "740" in str(e):
                 cmd_str = " ".join([f'"{arg}"' if " " in str(arg) else str(arg) for arg in cmd_list])
-                return subprocess.run(f'cmd /c {cmd_str}', shell=True, **kwargs)
+                return subprocess.run(f'cmd /c {cmd_str}', shell=True, timeout=15, **kwargs)
             raise e
 
     def _is_ld_loaded_100(self, dnconsole_path: str, tab_index: str) -> bool:
@@ -2046,9 +2174,9 @@ class ToolLDPlayerGUI(ctk.CTk):
     def _worker_run_3_cards(self, tab_name: str, tab_index: str):
         """Worker thread thực thi thứ tự 2 Card: 1. Boss Thế Giới -> 2. Phụ Bản Đơn/Đội"""
         try:
-            dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
+            dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
             if not os.path.exists(dnconsole_path):
-                dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
+                dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
 
             if not os.path.exists(dnconsole_path):
                 self.after(0, self._finish_run_3_cards, False, f"Không tìm thấy ldconsole/dnconsole tại: {self.ld_path}")
@@ -2885,7 +3013,7 @@ class ToolLDPlayerGUI(ctk.CTk):
             ("PB 20", self.var_B1, "card_b/b_pb20.png", 60),
             ("PB 50", self.var_B2, "card_b/b_pb50.png", 90),
             ("PB 80", self.var_B3, "card_b/b_pb80.png", 120),
-            ("PB 110", self.var_B4, "card_b/b_pb110.png", 270),
+            ("PB 110", self.var_B4, "card_b/b_pb110.png", 180),
             ("PB 140", self.var_B5, "card_b/b_pb140.png", 270)
         ]
 
@@ -4075,14 +4203,36 @@ class ToolLDPlayerGUI(ctk.CTk):
                         time.sleep(0.4)
                         self._execute_card_E_for_mode(dnconsole_path, "", tab_index, mode=1)
 
-            # 3. Vào Lôi Đài: Quét & tap Cổng Lôi Đài card_d/d_conglt.png (70%, hoãn 3s) ➔ Tap (505, 635) (hoãn 3s)
+            # 3. Vào Lôi Đài: Quét & tap Cổng Lôi Đài card_d/40npc/d_conglt.png (70%, hoãn 3.0s)
+            # Nếu không thấy: Quét & tap card_d/40npc/d_dichuyen.png (80%, hoãn 2.0s), sau đó quét/tap lại d_conglt.png
+            # Cuối cùng tap (505, 635) (hoãn 3.0s) để bước vào bên trong Lôi Đài
             if self._should_stop_card_D(): return
-            self.after(0, self.log_info, "👁️ [40 NPC - Auto] Quét tìm & tap ảnh 'card_d/d_conglt.png' (70%)...")
+            self.after(0, self.log_info, "👁️ [40 NPC - Auto] Quét tìm & tap ảnh Cổng Lôi Đài 'card_d/40npc/d_conglt.png' (70%)...")
             clt_x, clt_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_conglt.png", threshold=0.70)
             if clt_x is not None and clt_y is not None:
-                self.after(0, self.log_info, f"🎯 Phát hiện 'card_d/d_conglt.png' tại ({clt_x}, {clt_y})! Tap click ➔ Hoãn 3.0s...")
+                self.after(0, self.log_info, f"🎯 Phát hiện 'card_d/40npc/d_conglt.png' tại ({clt_x}, {clt_y})! Tap click ➔ Hoãn 3.0s...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {clt_x} {clt_y}"])
                 time.sleep(3.0)
+            else:
+                self.after(0, self.log_info, "👉 Chưa thấy 'card_d/40npc/d_conglt.png' ➔ Quét tìm & tap ảnh Dịch Chuyển 'card_d/40npc/d_dichuyen.png' (80%)...")
+                if self._should_stop_card_D(): return
+                dc_x, dc_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_dichuyen.png", threshold=0.80)
+                if dc_x is not None and dc_y is not None:
+                    self.after(0, self.log_info, f"🎯 Phát hiện 'card_d/40npc/d_dichuyen.png' tại ({dc_x}, {dc_y})! Tap click ➔ Hoãn 2.0s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {dc_x} {dc_y}"])
+                    time.sleep(2.0)
+                else:
+                    self.after(0, self.log_info, "⚠️ Không phát hiện ảnh 'card_d/40npc/d_dichuyen.png'.")
+
+                if self._should_stop_card_D(): return
+                self.after(0, self.log_info, "👁️ Quét & tap lại Cổng Lôi Đài 'card_d/40npc/d_conglt.png' (70%)...")
+                clt_x2, clt_y2 = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_conglt.png", threshold=0.70)
+                if clt_x2 is not None and clt_y2 is not None:
+                    self.after(0, self.log_info, f"🎯 Phát hiện 'card_d/40npc/d_conglt.png' tại ({clt_x2}, {clt_y2})! Tap click ➔ Hoãn 3.0s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {clt_x2} {clt_y2}"])
+                    time.sleep(3.0)
+                else:
+                    self.after(0, self.log_info, "⚠️ Chưa thấy 'card_d/40npc/d_conglt.png' ➔ Tiếp tục bước vào Lôi Đài.")
 
             if self._should_stop_card_D(): return
             self.after(0, self.log_info, "👉 [40 NPC - Auto] Tap (505, 635) ➔ Hoãn 3.0s bước vào Lôi Đài...")
@@ -4948,7 +5098,16 @@ class ToolLDPlayerGUI(ctk.CTk):
                             return None
 
                     screen = _read_img_unicode(temp_local, cv2.IMREAD_COLOR)
-                    template = _read_img_unicode(tmpl_path, cv2.IMREAD_UNCHANGED)
+                    
+                    if not hasattr(self, '_template_cache'):
+                        self._template_cache = {}
+
+                    if tmpl_path in self._template_cache:
+                        template = self._template_cache[tmpl_path]
+                    else:
+                        template = _read_img_unicode(tmpl_path, cv2.IMREAD_UNCHANGED)
+                        if template is not None:
+                            self._template_cache[tmpl_path] = template
 
                     if screen is not None and template is not None:
                         # Nới lỏng ngưỡng mặc định cho file nkn.png hoặc c_veboss.png (do có hiệu ứng chuyển động nhẹ)

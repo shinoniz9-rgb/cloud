@@ -3,8 +3,8 @@
     "B_don": true,
     "B_doi": true,
     "B_don_char": "Xuất Chiến",
-    "B_team_char": "Vị Trí 1",
-    "A_char": "Vị Trí 2",
+    "B_team_char": "Xuất Chiến",
+    "A_char": "Vị Trí 1",
     "A_ve": "2",
     "D_team_char": "Vị Trí 2",
     "D_chien_dau": "Auto",
@@ -25,17 +25,12 @@
     "C3": true,
     "switch_D": false,
     "D2": true,
-    "D3": true,
+    "D3": false,
     "D4": false,
-    "E_list_B": [
-        "ChaBong",
-        "Hiyori",
-        "IN3DRESIN",
-        "Sanji"
-    ],
-    "E_selected_left": "DiepMyTieu",
+    "E_list_B": [],
+    "E_selected_left": "Zoro",
     "E_quan_su": true,
-    "E_quan_su_char": "Sanji",
-    "selected_tab": "TS Origin",
+    "E_quan_su_char": "(Trống)",
+    "selected_tab": "TS Test",
     "ld_path": "C:\\Program Files\\LDPlayer\\LDPlayer9"
 }

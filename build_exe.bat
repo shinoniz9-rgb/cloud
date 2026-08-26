@@ -10,9 +10,11 @@ python -m PyInstaller --noconsole --onefile --name "TS_Origin_Control" --collect
 
 echo.
 if exist "dist\TS_Origin_Control.exe" (
-    echo 📥 Đang sao chép thư mục assets vào thư mục dist...
+    echo 📥 Đang sao chép thư mục assets và cloudflared.exe vào thư mục dist...
     if not exist "dist\assets" mkdir "dist\assets"
     xcopy /E /I /Y "assets" "dist\assets" >nul
+    if exist "cloudflared.exe" copy /Y "cloudflared.exe" "dist\cloudflared.exe" >nul
+    if exist "ngrok.exe" copy /Y "ngrok.exe" "dist\ngrok.exe" >nul
 
     echo 🧹 Đang tự động dọn dẹp các thư mục rác tạm thời...
     if exist "build" rmdir /s /q "build"

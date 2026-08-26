@@ -26,45 +26,59 @@ def get_local_ip():
         return "127.0.0.1"
 
 
+_last_shot_time = 0
+_last_shot_bytes = None
+_shot_lock = threading.Lock()
+
 def get_screenshot_bytes(app):
-    """Chụp màn hình giả lập LDPlayer đang chọn và trả về JPEG bytes"""
-    try:
-        tab_name, tab_index = app._get_selected_ld_info()
-        if tab_index is None:
-            return None
+    """Chụp màn hình giả lập LDPlayer đang chọn và trả về JPEG bytes (cache 1s giảm đơ/lag ADB)"""
+    global _last_shot_time, _last_shot_bytes
+    now = time.time()
+    with _shot_lock:
+        if _last_shot_bytes is not None and (now - _last_shot_time) < 1.0:
+            return _last_shot_bytes
 
-        dnconsole_path = os.path.join(app.ld_path, "ldconsole.exe")
-        if not os.path.exists(dnconsole_path):
-            dnconsole_path = os.path.join(app.ld_path, "dnconsole.exe")
+        try:
+            tab_name, tab_index = app._get_selected_ld_info()
+            if tab_index is None:
+                return None
 
-        temp_dir = os.path.join(tempfile.gettempdir(), "ts_origin_web")
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_screen = os.path.join(temp_dir, f"web_cap_{tab_index}.png")
+            dnconsole_path = os.path.join(app.ld_path, "ldconsole.exe")
+            if not os.path.exists(dnconsole_path):
+                dnconsole_path = os.path.join(app.ld_path, "dnconsole.exe")
 
-        if os.path.exists(temp_screen):
-            try: os.remove(temp_screen)
-            except Exception: pass
+            temp_dir = os.path.join(tempfile.gettempdir(), "ts_origin_web")
+            os.makedirs(temp_dir, exist_ok=True)
+            temp_screen = os.path.join(temp_dir, f"web_cap_{tab_index}.png")
 
-        app._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell screencap -p /sdcard/web_cap.png"])
-        app._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"pull /sdcard/web_cap.png \"{temp_screen}\""])
+            if os.path.exists(temp_screen):
+                try: os.remove(temp_screen)
+                except Exception: pass
 
-        if os.path.exists(temp_screen) and os.path.getsize(temp_screen) > 0:
-            d = np.fromfile(temp_screen, dtype=np.uint8)
-            img = cv2.imdecode(d, cv2.IMREAD_COLOR)
-            try: os.remove(temp_screen)
-            except Exception: pass
+            app._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell screencap -p /sdcard/web_cap.png"])
+            app._exec_cmd([dnconsole_path, "pull", "--index", str(tab_index), "--remote", "/sdcard/web_cap.png", "--local", temp_screen])
+            if not os.path.exists(temp_screen) or os.path.getsize(temp_screen) == 0:
+                app._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"pull /sdcard/web_cap.png \"{temp_screen}\""])
 
-            if img is not None:
-                h, w = img.shape[:2]
-                if w > 850:
-                    scale = 850.0 / w
-                    img = cv2.resize(img, (850, int(h * scale)), interpolation=cv2.INTER_AREA)
-                ok, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                if ok:
-                    return buf.tobytes()
-    except Exception:
-        pass
-    return None
+            if os.path.exists(temp_screen) and os.path.getsize(temp_screen) > 0:
+                d = np.fromfile(temp_screen, dtype=np.uint8)
+                img = cv2.imdecode(d, cv2.IMREAD_COLOR)
+                try: os.remove(temp_screen)
+                except Exception: pass
+
+                if img is not None:
+                    h, w = img.shape[:2]
+                    if w > 850:
+                        scale = 850.0 / w
+                        img = cv2.resize(img, (850, int(h * scale)), interpolation=cv2.INTER_AREA)
+                    ok, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                    if ok:
+                        _last_shot_bytes = buf.tobytes()
+                        _last_shot_time = now
+                        return _last_shot_bytes
+        except Exception:
+            pass
+        return None
 
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -830,13 +844,26 @@ HTML_PAGE = """<!DOCTYPE html>
             setTimeout(() => t.classList.remove('show'), 2000);
         }
 
+        let isDisconnected = false;
         async function fetchStatus() {
             try {
                 const res = await fetch('/api/status');
-                if (!res.ok) return;
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
+                if (isDisconnected) {
+                    isDisconnected = false;
+                    showToast('Đã khôi phục kết nối!');
+                }
                 renderUI(data);
-            } catch (e) {}
+            } catch (e) {
+                if (!isDisconnected) {
+                    isDisconnected = true;
+                    const statusDot = document.getElementById('statusDot');
+                    const statusText = document.getElementById('statusText');
+                    if (statusDot) statusDot.className = 'status-dot';
+                    if (statusText) statusText.innerText = 'Mất kết nối - đang thử lại...';
+                }
+            }
         }
 
         function renderUI(data) {
@@ -1404,104 +1431,300 @@ def start_web_server(app, port=8080):
     return None
 
 
+def stop_active_tunnel(app):
+    """Dừng tiến trình tunnel cũ đang chạy nếu có"""
+    setattr(app, 'stop_tunnel_requested', True)
+    proc = getattr(app, 'cloudflared_proc', None)
+    if proc:
+        try:
+            proc.terminate()
+            time.sleep(0.3)
+            if proc.poll() is None:
+                proc.kill()
+        except Exception:
+            pass
+        app.cloudflared_proc = None
+
+
 def find_or_download_cloudflared(app):
-    """Tìm hoặc tự động tải cloudflared.exe nếu chưa có"""
+    """Tìm hoặc tự động tải cloudflared.exe từ Cloudflare nếu chưa có"""
     app_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     if getattr(sys, 'frozen', False):
         app_dir = os.path.dirname(sys.executable)
 
     local_bin = os.path.join(app_dir, "cloudflared.exe")
-    if os.path.exists(local_bin) and os.path.getsize(local_bin) > 1000000:
+    if os.path.exists(local_bin) and os.path.getsize(local_bin) > 10000000:
         return local_bin
 
     sys_bin = shutil.which("cloudflared")
     if sys_bin:
         return sys_bin
 
-    app.log_info("📥 Đang tự động tải cloudflared.exe từ Cloudflare về máy...")
+    app.log_info("📥 Đang tự động tải cloudflared.exe chính chủ Cloudflare (khoảng 50MB, chỉ tải 1 lần)...")
     download_url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+    temp_bin = local_bin + ".download"
 
-    try:
-        ps_cmd = f"powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('{download_url}', '{local_bin}')\""
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-        subprocess.run(ps_cmd, shell=True, creationflags=creation_flags, timeout=45)
-        if os.path.exists(local_bin) and os.path.getsize(local_bin) > 1000000:
-            app.log_info("✅ Đã tải xong cloudflared.exe thành công!")
-            return local_bin
-    except Exception:
-        pass
-
-    try:
-        curl_bin = shutil.which("curl")
-        if curl_bin:
-            subprocess.run([curl_bin, "-L", "-o", local_bin, download_url], timeout=45)
-            if os.path.exists(local_bin) and os.path.getsize(local_bin) > 1000000:
-                app.log_info("✅ Đã tải xong cloudflared.exe thành công!")
-                return local_bin
-    except Exception:
-        pass
-
+    # 1. Thử tải bằng Python urllib (Native & an toàn nhất)
     try:
         req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=45) as response, open(local_bin, 'wb') as out_file:
+        with urllib.request.urlopen(req, timeout=60) as response, open(temp_bin, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
-        if os.path.exists(local_bin) and os.path.getsize(local_bin) > 1000000:
+        if os.path.exists(temp_bin) and os.path.getsize(temp_bin) > 10000000:
+            if os.path.exists(local_bin):
+                try: os.remove(local_bin)
+                except Exception: pass
+            os.rename(temp_bin, local_bin)
             app.log_info("✅ Đã tải xong cloudflared.exe thành công!")
             return local_bin
     except Exception as e:
-        app.log_error(f"Không thể tải cloudflared: {e}")
+        app.log_warning(f"Tải bằng urllib chưa thành công: {e}. Đang thử bằng Curl/PowerShell...")
+        if os.path.exists(temp_bin):
+            try: os.remove(temp_bin)
+            except Exception: pass
 
+    # 2. Thử tải bằng Curl nếu có
+    try:
+        curl_bin = shutil.which("curl")
+        if curl_bin:
+            creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            subprocess.run([curl_bin, "-L", "-o", temp_bin, download_url], timeout=90, creationflags=creation_flags)
+            if os.path.exists(temp_bin) and os.path.getsize(temp_bin) > 10000000:
+                if os.path.exists(local_bin):
+                    try: os.remove(local_bin)
+                    except Exception: pass
+                os.rename(temp_bin, local_bin)
+                app.log_info("✅ Đã tải xong cloudflared.exe thành công!")
+                return local_bin
+    except Exception:
+        if os.path.exists(temp_bin):
+            try: os.remove(temp_bin)
+            except Exception: pass
+
+    # 3. Thử tải bằng PowerShell
+    try:
+        ps_cmd = f"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('{download_url}', '{temp_bin}')"
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], timeout=90, creationflags=creation_flags)
+        if os.path.exists(temp_bin) and os.path.getsize(temp_bin) > 10000000:
+            if os.path.exists(local_bin):
+                try: os.remove(local_bin)
+                except Exception: pass
+            os.rename(temp_bin, local_bin)
+            app.log_info("✅ Đã tải xong cloudflared.exe thành công!")
+            return local_bin
+    except Exception:
+        if os.path.exists(temp_bin):
+            try: os.remove(temp_bin)
+            except Exception: pass
+
+    app.log_error("Không thể tải cloudflared.exe tự động. Sẽ chuyển sang chế độ SSH Tunnel dự phòng.")
     return None
 
 
+def find_or_download_ngrok(app):
+    """Tìm hoặc tự động tải ngrok.exe nếu chưa có"""
+    app_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    if getattr(sys, 'frozen', False):
+        app_dir = os.path.dirname(sys.executable)
+
+    local_bin = os.path.join(app_dir, "ngrok.exe")
+    if os.path.exists(local_bin) and os.path.getsize(local_bin) > 5000000:
+        return local_bin
+
+    sys_bin = shutil.which("ngrok")
+    if sys_bin:
+        return sys_bin
+
+    app.log_info("📥 Đang tự động tải ngrok.exe từ server chính chủ...")
+    download_url = "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip"
+    temp_zip = os.path.join(tempfile.gettempdir(), "ngrok.zip")
+
+    try:
+        req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=60) as response, open(temp_zip, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+        if os.path.exists(temp_zip):
+            import zipfile
+            with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+                zip_ref.extract("ngrok.exe", app_dir)
+            try: os.remove(temp_zip)
+            except Exception: pass
+            if os.path.exists(local_bin):
+                app.log_info("✅ Đã tải xong ngrok.exe thành công!")
+                return local_bin
+    except Exception as e:
+        if hasattr(app, 'log_warning'):
+            app.log_warning(f"Lỗi tải ngrok.exe: {e}")
+    return None
+
+
+def get_app_dir():
+    """Lấy đường dẫn thư mục thực tế chứa file .exe (hoặc script main.py)"""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def start_cloudflare_tunnel(app):
-    """Khởi động đường truyền Online HTTPS bảo mật truy cập từ xa (4G/Internet) - Kết nối tức thì"""
+    """Khởi động đường truyền Online HTTPS bảo mật truy cập từ xa (4G/Internet) - Tự động hỗ trợ Ngrok Static Domain hoặc Cloudflare"""
     def _tunnel_worker():
+        stop_active_tunnel(app)
+        setattr(app, 'stop_tunnel_requested', False)
         port = getattr(app, 'web_port', 8080)
         app.log_info(f"🌐 [4G / ONLINE] Đang khởi tạo đường truyền HTTPS qua cổng {port}...")
 
-        # 1. Thử dùng localhost.run với SSH tích hợp sẵn của Windows (Tạo link tức thì trong 1 giây)
-        try:
-            ssh_bin = shutil.which("ssh") or "ssh"
-            creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-            ssh_cmd = [
-                ssh_bin,
-                "-T",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "ServerAliveInterval=30",
-                "-R", f"80:127.0.0.1:{port}",
-                "nokey@localhost.run"
-            ]
-            proc = subprocess.Popen(
-                ssh_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding='utf-8',
-                errors='ignore',
-                creationflags=creation_flags
-            )
-            app.cloudflared_proc = proc
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
-            for line in iter(proc.stdout.readline, ''):
-                if not line: break
-                match = re.search(r'(https://[a-zA-Z0-9-]+\.lhr\.life)', line)
-                if match:
-                    found_url = match.group(1)
+        # Check configuration in config.json
+        cf_token = ""
+        cf_domain = ""
+        ngrok_token = ""
+        ngrok_domain = ""
+        try:
+            cfg_path = os.path.join(get_app_dir(), "config.json")
+            if os.path.exists(cfg_path):
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg_data = json.load(f)
+                    cf_token = cfg_data.get("cloudflare_token", "").strip()
+                    cf_domain = cfg_data.get("fixed_domain", "").strip()
+                    ngrok_token = cfg_data.get("ngrok_authtoken", "").strip()
+                    if not cf_domain and cfg_data.get("ngrok_domain"):
+                        ngrok_domain = cfg_data.get("ngrok_domain", "").strip()
+                    elif cf_domain and "ngrok" in cf_domain.lower():
+                        ngrok_domain = cf_domain
+        except Exception:
+            pass
+
+        # 0. ƯU TIÊN NGROK STATIC DOMAIN NẾU CÓ NGROK TOKEN & DOMAIN
+        if ngrok_token and (ngrok_domain or cf_domain):
+            domain_target = ngrok_domain or cf_domain
+            ngrok_bin = find_or_download_ngrok(app)
+            if ngrok_bin and os.path.exists(ngrok_bin):
+                try:
+                    subprocess.run([ngrok_bin, "config", "add-authtoken", ngrok_token], creationflags=creation_flags)
+                    subprocess.run([ngrok_bin, "authtoken", ngrok_token], creationflags=creation_flags)
+
+                    clean_dom = domain_target.replace("https://", "").replace("http://", "").strip("/")
+                    found_url = f"https://{clean_dom}"
                     app.public_web_url = found_url
-                    app.log_info(f"🚀 [4G / ONLINE LINK] Sẵn sàng: {found_url}")
                     if hasattr(app, '_update_web_url_ui'):
                         app.after(0, app._update_web_url_ui, found_url, True)
-                    return
-        except Exception as e:
-            app.log_error(f"Lỗi kết nối SSH Tunnel: {e}")
 
-        # 2. Dự phòng dùng cloudflared.exe
-        try:
-            bin_path = find_or_download_cloudflared(app)
-            if bin_path and os.path.exists(bin_path):
-                creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-                cmd = [bin_path, "tunnel", "--url", f"http://127.0.0.1:{port}"]
+                    cmd_options = [
+                        [ngrok_bin, "http", f"--domain={clean_dom}", str(port)],
+                        [ngrok_bin, "http", str(port), "--domain", clean_dom],
+                        [ngrok_bin, "http", str(port), "--url", clean_dom]
+                    ]
+
+                    ngrok_success = False
+                    retry_count = 0
+
+                    for cmd in cmd_options:
+                        app.log_info(f"🚀 [4G / NGROK STATIC DOMAIN] Đang khởi chạy Tên Miền Cố Định: https://{clean_dom}")
+                        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='ignore', creationflags=creation_flags)
+                        app.cloudflared_proc = proc
+                        time.sleep(2.0)
+                        if proc.poll() is None:
+                            ngrok_success = True
+                            while not getattr(app, 'stop_tunnel_requested', False):
+                                proc.wait()
+                                if getattr(app, 'stop_tunnel_requested', False):
+                                    break
+                                retry_count += 1
+                                app.log_warning(f"⚠️ [4G / NGROK] Mất kết nối Ngrok. Đang tự động kết nối lại (Lần {retry_count})...")
+                                time.sleep(3)
+                                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='ignore', creationflags=creation_flags)
+                                app.cloudflared_proc = proc
+                            break
+                        else:
+                            out_err = proc.stdout.read() if proc.stdout else ""
+                            app.log_warning(f"Cú pháp câu lệnh Ngrok chưa tương thích, đang thử cú pháp khác... {out_err.strip()[:80]}")
+
+                    if ngrok_success:
+                        app.log_warning("⚠️ [4G / ONLINE] Đường truyền Ngrok đã dừng.")
+                        return
+                    else:
+                        app.log_error("❌ Ngrok không thể khởi chạy. Tự động chuyển sang Cloudflare...")
+                except Exception as e:
+                    app.log_error(f"Lỗi khởi động Ngrok Tunnel: {e}")
+
+        # 1. NẾU CÓ CLOUDFLARE TOKEN CỐ ĐỊNH -> CHẠY CLOUDFLARE STATIC TUNNEL
+        bin_path = find_or_download_cloudflared(app)
+        if cf_token and bin_path and os.path.exists(bin_path):
+            try:
+                cmd = [bin_path, "tunnel", "run", "--token", cf_token]
+                app.log_info("🔑 [4G / ONLINE] Đang khởi chạy Cloudflare Tunnel với TOKEN CỐ ĐỊNH...")
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='ignore', creationflags=creation_flags)
+                app.cloudflared_proc = proc
+
+                found_url = cf_domain if cf_domain.startswith("http") else f"https://{cf_domain}"
+                app.public_web_url = found_url
+                app.log_info(f"🚀 [4G / CLOUDFLARE STATIC LINK] Sẵn sàng: {found_url}")
+                if hasattr(app, '_update_web_url_ui'):
+                    app.after(0, app._update_web_url_ui, found_url, True)
+
+                proc.wait()
+                app.log_warning("⚠️ [4G / ONLINE] Đường truyền Cloudflare Tunnel đã dừng.")
+                if hasattr(app, '_on_tunnel_failed'):
+                    app.after(0, app._on_tunnel_failed)
+                return
+            except Exception as e:
+                app.log_error(f"Lỗi khởi động Cloudflare Tunnel Token: {e}")
+
+        # 2. ĐƯỜNG TRUYỀN DỰ PHÒNG CHUẨN SSH (Localhost.run / Pinggy) - Tên miền sạch (*.lhr.life, *.free.pinggy.link), 100% không bị nhà mạng VN chặn DNS (NXDOMAIN)
+        ssh_bin = shutil.which("ssh") or "ssh"
+        ssh_configs = [
+            (
+                "Localhost.run",
+                [ssh_bin, "-T", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=6", "-o", "TCPKeepAlive=yes", "-R", f"80:127.0.0.1:{port}", "nokey@localhost.run"],
+                r'(https://[a-zA-Z0-9-]+\.lhr\.life)'
+            ),
+            (
+                "Pinggy",
+                [ssh_bin, "-p", "443", "-R0:localhost:" + str(port), "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=6", "-o", "TCPKeepAlive=yes", "a.pinggy.io"],
+                r'(https://[a-zA-Z0-9-]+\.free\.pinggy\.link|https://[a-zA-Z0-9-]+\.a\.pinggy\.link)'
+            )
+        ]
+
+        for s_name, cmd, regex_pattern in ssh_configs:
+            try:
+                app.log_info(f"🌐 [4G / ONLINE] Đang khởi tạo đường truyền {s_name}...")
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding='utf-8',
+                    errors='ignore',
+                    creationflags=creation_flags
+                )
+                app.cloudflared_proc = proc
+                found_url = None
+
+                for line in iter(proc.stdout.readline, ''):
+                    if not line:
+                        break
+                    if not found_url:
+                        match = re.search(regex_pattern, line)
+                        if match:
+                            found_url = match.group(1)
+                            app.public_web_url = found_url
+                            app.log_info(f"🚀 [4G / {s_name.upper()} LINK] Sẵn sàng: {found_url}")
+                            if hasattr(app, '_update_web_url_ui'):
+                                app.after(0, app._update_web_url_ui, found_url, True)
+
+                if found_url:
+                    app.log_warning(f"⚠️ [4G / ONLINE] Đường truyền {s_name} đã ngắt kết nối.")
+                    if hasattr(app, '_on_tunnel_failed'):
+                        app.after(0, app._on_tunnel_failed)
+                    return
+            except Exception as e:
+                app.log_error(f"Lỗi kết nối {s_name}: {e}")
+
+        # 3. DỰ PHÒNG CUỐI: Cloudflare Quick Tunnel (cloudflared.exe)
+        if bin_path and os.path.exists(bin_path):
+            try:
+                cmd = [bin_path, "tunnel", "--url", f"http://127.0.0.1:{port}", "--no-autoupdate"]
                 proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -1513,18 +1736,26 @@ def start_cloudflare_tunnel(app):
                 )
                 app.cloudflared_proc = proc
 
+                found_url = None
                 for line in iter(proc.stdout.readline, ''):
-                    if not line: break
-                    match = re.search(r'(https://[a-zA-Z0-9-]+\.trycloudflare\.com)', line)
-                    if match:
-                        found_url = match.group(1)
-                        app.public_web_url = found_url
-                        app.log_info(f"🚀 [4G / ONLINE LINK] Sẵn sàng: {found_url}")
-                        if hasattr(app, '_update_web_url_ui'):
-                            app.after(0, app._update_web_url_ui, found_url, True)
-                        return
-        except Exception as e:
-            app.log_error(f"Lỗi khởi động Cloudflare Tunnel: {e}")
+                    if not line:
+                        break
+                    if not found_url:
+                        match = re.search(r'(https://[a-zA-Z0-9-]+\.trycloudflare\.com)', line)
+                        if match:
+                            found_url = match.group(1)
+                            app.public_web_url = found_url
+                            app.log_info(f"🚀 [4G / CLOUDFLARE LINK] Sẵn sàng: {found_url}")
+                            if hasattr(app, '_update_web_url_ui'):
+                                app.after(0, app._update_web_url_ui, found_url, True)
+
+                proc.poll()
+                app.log_warning("⚠️ [4G / ONLINE] Đường truyền Cloudflare Tunnel đã dừng.")
+                if hasattr(app, '_on_tunnel_failed'):
+                    app.after(0, app._on_tunnel_failed)
+                return
+            except Exception as e:
+                app.log_error(f"Lỗi khởi động Cloudflare Tunnel: {e}")
 
         if hasattr(app, '_on_tunnel_failed'):
             app.after(0, app._on_tunnel_failed)

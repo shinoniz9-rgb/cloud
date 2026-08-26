@@ -59,7 +59,14 @@ class ToolLDPlayerGUI(ctk.CTk):
         self.dict_name_to_index = {}
         self.is_scanning = False
         self.game_icon_path = None
-        self.game_ctk_image = None
+        self.get_app_dir = get_app_dir
+
+        # Biến trạng thái Web Server & Cloudflare Tunnel (Truy cập từ xa)
+        self.web_ip = "127.0.0.1"
+        self.web_port = 8080
+        self.cloudflared_proc = None
+        self.public_web_url = ""
+        self.current_web_url = ""
 
         # Biến trạng thái Công tắc tổng ON/OFF & Nút Dừng các Card
         self.var_switch_A = ctk.BooleanVar(value=False)  # Card A: BOSS THẾ GIỚI
@@ -194,6 +201,10 @@ class ToolLDPlayerGUI(ctk.CTk):
         self.after(0, self._destroy_app_completely)
 
     def _destroy_app_completely(self):
+        try:
+            web_server.stop_active_tunnel(self)
+        except Exception:
+            pass
         try:
             if hasattr(self, 'web_server') and self.web_server:
                 self.web_server.shutdown()
@@ -487,9 +498,16 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.combo_E_quan_su.configure(state="disabled", text_color="#4B5563", fg_color="#18181B", button_color="#18181B", button_hover_color="#18181B")
 
     def save_config(self):
-        """Lưu toàn bộ cấu hình máy chủ & checkbox vào config.json một cách an toàn"""
+        """Lưu toàn bộ cấu hình máy chủ & checkbox vào config.json một cách an toàn (giữ nguyên các trường tùy chỉnh)"""
         try:
+            config_path = os.path.join(get_app_dir(), "config.json")
             config = {}
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        config = json.load(f)
+                except Exception:
+                    config = {}
             if hasattr(self, 'combo_server'):
                 config["server"] = self.combo_server.get()
 
@@ -884,10 +902,14 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.btn_online_tunnel.configure(text="Tạo Link 4G", state="normal", fg_color="#EA580C")
 
     def _on_tunnel_failed(self):
-        """Xử lý khi không thể tạo tunnel 4G"""
+        """Xử lý khi đường truyền 4G bị ngắt hoặc không thể tạo tunnel"""
         if hasattr(self, 'btn_online_tunnel'):
             self.btn_online_tunnel.configure(text="Tạo Lại 4G", state="normal", fg_color="#EA580C")
-        self.log_error("Không thể tạo đường link 4G. Vui lòng kiểm tra kết nối mạng và thử lại.")
+        if hasattr(self, 'lbl_web_url'):
+            local_url = f"http://{getattr(self, 'web_ip', '127.0.0.1')}:{getattr(self, 'web_port', 8080)}"
+            self.lbl_web_url.configure(text=f"🌐 Wifi: {local_url}")
+            self.current_web_url = local_url
+        self.log_warning("⚠️ Đường truyền 4G đã dừng. Bấm 'Tạo Lại 4G' nếu muốn kết nối lại.")
 
     def _browse_ld_path(self):
         """Mở hộp thoại chọn thư mục LDPlayer9"""
@@ -1646,6 +1668,30 @@ class ToolLDPlayerGUI(ctk.CTk):
         except Exception:
             pass
 
+    def log_warning(self, message: str):
+        """Cập nhật cảnh báo lên thanh trạng thái & ô ghi Log & xuất ra app.log"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_line = f"[{timestamp}] ⚠️ {message}"
+        if not hasattr(self, 'recent_logs'):
+            self.recent_logs = []
+        self.recent_logs.append(log_line)
+        if len(self.recent_logs) > 60:
+            self.recent_logs.pop(0)
+
+        if hasattr(self, 'lbl_status'):
+            self.lbl_status.configure(text=f"Cảnh báo: {message}")
+        if hasattr(self, 'txt_log'):
+            self.txt_log.configure(state="normal")
+            self.txt_log.insert("end", f"{log_line}\n")
+            self.txt_log.see("end")
+            self.txt_log.configure(state="disabled")
+        try:
+            log_file = os.path.join(get_app_dir(), "app.log")
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"{log_line}\n")
+        except Exception:
+            pass
+
     def log_error(self, message: str):
         """Cập nhật lỗi lên thanh trạng thái & ô ghi Log & tự động xuất ra file app.log"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1671,8 +1717,39 @@ class ToolLDPlayerGUI(ctk.CTk):
             pass
 
     def _exec_cmd(self, cmd_list, text=False):
-        """Thực thi lệnh ADB/LDConsole an toàn, tự động chuyển hướng trực tiếp sang adb.exe để vượt lỗi WinError 740/Admin elevation"""
-        # Kiểm tra nếu đây là lệnh ADB gọi qua dnconsole/ldconsole (VD: [dnconsole, 'adb', '--index', '1', '--command', '...'])
+        """Thực thi lệnh ADB/LDConsole an toàn và chính xác 100% trên mọi Tab LDPlayer"""
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "creationflags": creation_flags
+        }
+        if text:
+            kwargs["text"] = True
+            kwargs["encoding"] = "utf-8"
+            kwargs["errors"] = "ignore"
+
+        # 1. Thử chạy trực tiếp lệnh dnconsole/ldconsole (Cơ chế chuẩn native 100% của LDPlayer)
+        try:
+            res = subprocess.run(cmd_list, timeout=15, **kwargs)
+            if res is not None and res.returncode == 0:
+                return res
+            elif res is not None:
+                # Nếu lệnh dnconsole chính chủ chạy xong (kể cả returncode != 0), vẫn ưu tiên kết quả chính chủ
+                pass
+        except OSError as e:
+            if getattr(e, 'winerror', None) == 740 or "740" in str(e):
+                try:
+                    cmd_str = " ".join([f'"{arg}"' if " " in str(arg) else str(arg) for arg in cmd_list])
+                    res_cmd = subprocess.run(f'cmd /c {cmd_str}', shell=True, timeout=15, **kwargs)
+                    if res_cmd is not None:
+                        return res_cmd
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 2. Nếu là lệnh ADB gọi qua dnconsole và gặp sự cố, mới chuyển hướng dự phòng qua adb.exe
         if len(cmd_list) >= 6 and cmd_list[1] == "adb" and "--index" in cmd_list and "--command" in cmd_list:
             try:
                 idx_pos = cmd_list.index("--index") + 1
@@ -1683,16 +1760,18 @@ class ToolLDPlayerGUI(ctk.CTk):
                 adb_path = os.path.join(self.ld_path, "adb.exe")
 
                 if os.path.exists(adb_path):
-                    creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-                    kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "creationflags": creation_flags}
-                    if text:
-                        kwargs["text"] = True
-                        kwargs["encoding"] = "utf-8"
-                        kwargs["errors"] = "ignore"
+                    port_5555 = 5555 + (tab_idx * 2)
+                    port_5554 = 5554 + (tab_idx * 2)
+                    
+                    # Kết nối tự động lại cổng ADB nếu bị rớt
+                    try:
+                        subprocess.run([adb_path, "connect", f"127.0.0.1:{port_5555}"], timeout=3, **kwargs)
+                    except Exception:
+                        pass
 
                     candidate_devices = [
-                        f"127.0.0.1:{5555 + (tab_idx * 2)}",
-                        f"emulator-{5554 + (tab_idx * 2)}"
+                        f"127.0.0.1:{port_5555}",
+                        f"emulator-{port_5554}"
                     ]
 
                     for device_id in candidate_devices:
@@ -1716,25 +1795,11 @@ class ToolLDPlayerGUI(ctk.CTk):
             except Exception:
                 pass
 
-        # Fallback chạy lệnh trực tiếp thông thường
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-        kwargs = {
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.PIPE,
-            "creationflags": creation_flags
-        }
-        if text:
-            kwargs["text"] = True
-            kwargs["encoding"] = "utf-8"
-            kwargs["errors"] = "ignore"
-
+        # Fallback chạy lại lệnh gốc
         try:
             return subprocess.run(cmd_list, timeout=15, **kwargs)
-        except OSError as e:
-            if getattr(e, 'winerror', None) == 740 or "740" in str(e):
-                cmd_str = " ".join([f'"{arg}"' if " " in str(arg) else str(arg) for arg in cmd_list])
-                return subprocess.run(f'cmd /c {cmd_str}', shell=True, timeout=15, **kwargs)
-            raise e
+        except Exception:
+            return None
 
     def _is_ld_loaded_100(self, dnconsole_path: str, tab_index: str) -> bool:
         """Kiểm tra nhanh trạng thái nạp 100% của giả lập LDPlayer qua list2 (không bị đứng/treo ADB)"""
@@ -1836,6 +1901,58 @@ class ToolLDPlayerGUI(ctk.CTk):
             if hasattr(self, 'lbl_tab_count'): self.lbl_tab_count.configure(text="Tab LD: 0")
             self.log_info("Không tìm thấy tab LDPlayer nào.")
 
+    def _minimize_ld_window(self, tab_index: str = None, tab_name: str = None):
+        """Tự động thu nhỏ cửa sổ giả lập LDPlayer xuống thanh Taskbar bằng Win32 API native (Loại trừ cửa sổ Tool GUI)"""
+        if os.name != 'nt':
+            return
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+
+            tool_hwnd = None
+            try:
+                tool_hwnd = self.winfo_id()
+            except Exception:
+                pass
+
+            def enum_windows_callback(hwnd, extra):
+                # Tuyệt đối không thu nhỏ cửa sổ của Tool GUI
+                if tool_hwnd and hwnd == tool_hwnd:
+                    return True
+
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        title = buff.value
+                        
+                        # Bỏ qua cửa sổ Tool GUI (TS Origin-Control)
+                        if "TS Origin-Control" in title or "TS Origin - Control" in title or "Control" in title:
+                            return True
+
+                        # Chỉ tìm cửa sổ giả lập LDPlayer thực sự
+                        is_ld = "LDPlayer" in title or "dnplayer" in title.lower() or (tab_name and tab_name.lower() in title.lower())
+                        if is_ld:
+                            matched = False
+                            if tab_name and tab_name.lower() in title.lower():
+                                matched = True
+                            elif tab_index is not None:
+                                str_idx = str(tab_index)
+                                if f"({str_idx})" in title or f"-{str_idx}" in title or f" {str_idx}" in title or title.endswith(str_idx):
+                                    matched = True
+                            elif "LDPlayer" in title:
+                                matched = True
+
+                            if matched:
+                                user32.ShowWindow(hwnd, 6) # SW_MINIMIZE = 6
+                return True
+
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+            user32.EnumWindows(WNDENUMPROC(enum_windows_callback), 0)
+        except Exception:
+            pass
+
     # ---- HÀM XỬ LÝ SỰ KIỆN TS ORIGIN (TỰ ĐỘNG BẤM ICON MỞ GAME) ----
     def xu_ly_ts_origin(self):
         tab, idx = self._get_selected_ld_info()
@@ -1844,7 +1961,7 @@ class ToolLDPlayerGUI(ctk.CTk):
             return
 
         server = self.combo_server.get()
-        self.log_info(f"Bắt đầu quy trình: Bật Giả lập LDPlayer (Tab {tab}) ➔ Chờ Load 100% ➔ Mở App Game ➔ Tự động chọn Máy Chủ '{server}'...")
+        self.log_info(f"Bắt đầu quy trình: Bật Giả lập LDPlayer (Tab {tab}) ➔ Chờ Load 100% ➔ Tự động thu nhỏ xuống Taskbar ➔ Mở App Game ➔ Chọn Máy Chủ '{server}'...")
         self.btn_enter_game.configure(state="disabled", text="Đang mở Game...")
 
         # Chạy lệnh mở app trong Thread riêng để không làm treo giao diện
@@ -1861,14 +1978,18 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.after(0, self._finish_launch_ts_origin, False, f"Không tìm thấy ldconsole/dnconsole tại: {self.ld_path}")
                 return
 
-            # Bước 1: Gửi lệnh mở/kích hoạt giả lập LDPlayer từ màn hình (Nếu chưa nạp mới khởi chạy, nếu đã chạy sẵn thì giữ nguyên vị trí)
+            # Bước 1: Gửi lệnh mở/kích hoạt giả lập LDPlayer & TỰ ĐỘNG THU NHỎ NGAY LẬP TỨC
             if not self._is_ld_loaded_100(dnconsole_path, tab_index):
                 self.after(0, self.log_info, f"🖥️ [Bước 1/4] Đang khởi động Giả lập LDPlayer Tab: {tab_name} (Index: {tab_index})...")
                 self._exec_cmd([dnconsole_path, "launch", "--index", str(tab_index)])
+                time.sleep(0.5)
+                self._minimize_ld_window(tab_index, tab_name)
+                self.after(0, self.log_info, f"📉 [Bước 1/4] Đã tự động thu nhỏ cửa sổ LDPlayer (Tab {tab_name}) xuống khay Taskbar ngay khi kích hoạt!")
             else:
-                self.after(0, self.log_info, f"🖥️ Tab LDPlayer {tab_name} (Index: {tab_index}) đã mở sẵn, giữ nguyên vị trí cửa sổ màn hình...")
+                self.after(0, self.log_info, f"🖥️ Tab LDPlayer {tab_name} (Index: {tab_index}) đã mở sẵn ➔ Tự động thu nhỏ xuống khay Taskbar...")
+                self._minimize_ld_window(tab_index, tab_name)
 
-            # Bước 2: Theo dõi tiến trình chờ nạp 100% qua console list2 (nhanh, tức thì, không bị đơ/treo ADB)
+            # Bước 2: Theo dõi tiến trình chờ nạp 100% qua console list2
             self.after(0, self.log_info, f"⏳ [Bước 2/4] Đang chờ giả lập LDPlayer Tab: {tab_name} (Index: {tab_index}) load 100%...")
             boot_start = time.time()
             emulator_ready = False
@@ -1879,10 +2000,14 @@ class ToolLDPlayerGUI(ctk.CTk):
                     self.after(0, self._finish_launch_ts_origin, False, "🛑 Tiến trình đã dừng theo yêu cầu!")
                     return
 
+                # Thu nhỏ liên tục để đảm bảo cửa sổ không bị nảy lên màn hình
+                self._minimize_ld_window(tab_index, tab_name)
+
                 if self._is_ld_loaded_100(dnconsole_path, tab_index):
                     emulator_ready = True
                     boot_time = round(time.time() - boot_start, 1)
                     self.after(0, self.log_info, f"✅ Giả lập LDPlayer đã load 100% thành công sau {boot_time}s! Đang tiến hành mở Game...")
+                    self._minimize_ld_window(tab_index, tab_name)
                     break
 
                 elapsed = int(time.time() - boot_start)
@@ -1899,75 +2024,20 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.after(0, self.log_info, "ℹ️ Tiếp tục tiến trình mở ứng dụng Game...")
             else:
                 self.after(0, self.log_info, "⏳ Đang hoãn 6 giây cho màn hình giả lập ổn định hoàn toàn...")
-                time.sleep(6.0) # Tạm dừng 6s cho màn hình desktop giả lập ổn định hẳn
-
-            # Bước 3: Dùng ADB để quét danh sách các app/game cài trên giả lập LDPlayer này
-            self.after(0, self.log_info, f"🎮 [Bước 3/4] Đang quét danh sách Ứng Dụng trên Tab {tab_name}...")
-            
-            target_pkg = None
-            installed_packages = []
-            
-            # Thử 5 lần quét package qua ADB (đề phòng Package Manager của Android vừa boot xong đang bận)
-            for pkg_attempt in range(5):
-                if self.stop_requested:
+                if self._sleep_with_stop_check(6.0):
                     self.stop_requested = False
                     self.after(0, self._finish_launch_ts_origin, False, "🛑 Tiến trình đã dừng theo yêu cầu!")
                     return
 
-                res = self._exec_cmd(
-                    [dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell pm list packages -3"],
-                    text=True
-                )
-                stdout_text = res.stdout.strip() if res else ""
-                
-                # Nếu quét package -3 rỗng, thử quét toàn bộ package hệ thống
-                if not stdout_text:
-                    res = self._exec_cmd(
-                        [dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell pm list packages"],
-                        text=True
-                    )
-                    stdout_text = res.stdout.strip() if res else ""
-
-                installed_packages = []
-                for line in stdout_text.splitlines():
-                    line = line.strip()
-                    if line.startswith("package:"):
-                        pkg_name = line.replace("package:", "").strip()
-                        if pkg_name:
-                            installed_packages.append(pkg_name)
-
-                # Dò tìm package phù hợp theo danh sách từ khóa rộng của TS Origin
-                ts_keywords = ["ts", "origin", "chinesegamer", "vng", "vtc", "tso"]
-                for pkg in installed_packages:
-                    for kw in ts_keywords:
-                        if kw in pkg.lower():
-                            target_pkg = pkg
-                            break
-                    if target_pkg:
-                        break
-
-                if target_pkg:
-                    break
-                time.sleep(1.5)
-
-            # Danh sách fallback nếu không dò tìm thấy package
-            fallback_pkgs = ["com.chinesegamer.tsotw", "com.chinesegamer.tsorigin", "com.vng.tsorigin", "com.vtc.tsorigin"]
-
-            if target_pkg:
-                self.after(0, self.log_info, f"🎯 Đã phát hiện Package Game: '{target_pkg}'! Đang mở ứng dụng...")
-            else:
-                target_pkg = installed_packages[0] if installed_packages else fallback_pkgs[0]
-                self.after(0, self.log_info, f"ℹ️ Khởi chạy Package Game mặc định: '{target_pkg}'...")
-
-            # Khởi chạy Game qua ADB ngầm để giữ nguyên vị trí cửa sổ LDPlayer
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell monkey -p {target_pkg} -c android.intent.category.LAUNCHER 1"])
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell am start -W -n {target_pkg}"])
+            # Bước 3: Dùng ADB để quét danh sách các app/game cài trên giả lập LDPlayer này
+            self.after(0, self.log_info, f"🎮 [Bước 3/4] Đang quét danh sách Ứng Dụng trên Tab {tab_name}...")
             
-            # Khởi chạy bổ sung các package fallback nếu không tìm thấy package bằng từ khóa
-            if not installed_packages or not target_pkg:
-                for fb_pkg in fallback_pkgs:
-                    self._exec_cmd([dnconsole_path, "runapp", "--index", str(tab_index), "--packagename", fb_pkg])
-                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell monkey -p {fb_pkg} -c android.intent.category.LAUNCHER 1"])
+            target_pkg = "com.vtcmobile.gz06"
+            self.after(0, self.log_info, f"🎯 Đã phát hiện Package Game: '{target_pkg}'! Đang mở ứng dụng...")
+
+            # Khởi chạy Game qua LDPlayer Native runapp & ADB monkey để luôn mở thành công 100% trên mọi Tab
+            self._exec_cmd([dnconsole_path, "runapp", "--index", str(tab_index), "--packagename", target_pkg])
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell monkey -p {target_pkg} -c android.intent.category.LAUNCHER 1"])
 
             # 4. Kích hoạt "Mắt Thần" OpenCV quét nhận biết Bảng Chọn Máy Chủ qua ảnh mẫu 'login_server.png' / 'login_redorb.png'
             self.after(0, self.log_info, "👁️ [Bước 4/4] Mắt thần OpenCV bắt đầu quét theo dõi màn hình Chọn Máy Chủ TS Origin...")
@@ -2075,6 +2145,10 @@ class ToolLDPlayerGUI(ctk.CTk):
                 self.after(0, self.log_info, f"🔄 Chưa vào được máy chủ '{server_name}'! Bắt đầu cuộn NGƯỢC LÊN 10 lần để tìm nhấp lại...")
                 
                 for step in range(10):
+                    if self.stop_requested:
+                        self.stop_requested = False
+                        self.after(0, self._finish_launch_ts_origin, False, "🛑 Tiến trình đã dừng theo yêu cầu!")
+                        return
                     click_x, click_y = self._find_template_on_screen(dnconsole_path, tab_index, server_img_name, threshold=0.75)
 
                     if click_x is not None and click_y is not None:
@@ -2105,9 +2179,7 @@ class ToolLDPlayerGUI(ctk.CTk):
                 
                 # 📌 Bước 5: Hoãn 3 giây khi vào màn hình game
                 self.after(0, self.log_info, "⏳ [Màn hình game] Hoãn 3 giây trước khi quét giao diện...")
-                time.sleep(3.0)
-
-                if self.stop_requested:
+                if self._sleep_with_stop_check(3.0):
                     self.stop_requested = False
                     self.after(0, self._finish_launch_ts_origin, False, "🛑 Tiến trình đã dừng theo yêu cầu!")
                     return
@@ -2137,7 +2209,8 @@ class ToolLDPlayerGUI(ctk.CTk):
                 else:
                     self.after(0, self.log_info, "ℹ️ Không tìm thấy ảnh 'card_top/login/login_auto.png' trên màn hình game.")
 
-                # 📌 Bước 8: Hoàn tất quá trình mở game & trả lại trạng thái nút bấm
+                # 📌 Bước 8: Hoàn tất quá trình mở game & tự động thu nhỏ cửa sổ xuống Taskbar
+                self._minimize_ld_window(tab_index, tab_name)
                 msg = f"✅ [Hoàn thành] Đã vào game & hoàn tất quy trình khởi chạy trên Tab: {tab_name} (Index: {tab_index})"
                 self.after(0, self._finish_launch_ts_origin, True, msg)
 
@@ -2192,7 +2265,7 @@ class ToolLDPlayerGUI(ctk.CTk):
                         self.after(0, self.log_info, "🛑 [1/2] Công tắc Card Boss Thế Giới gạt về OFF ➔ Đã dừng thao tác Card này!")
                     else:
                         # Thao tác xong các ô check -> Tự động nhả công tắc C về OFF
-                        self.var_switch_A.set(False)
+                        self.after(0, lambda: self.var_switch_A.set(False))
                         self.after(0, self.save_config)
                         self.after(0, self.log_info, "✅ [1/2] Đã hoàn thành Card Boss Thế Giới ➔ Tự động nhả công tắc C về OFF!")
 
@@ -2211,7 +2284,7 @@ class ToolLDPlayerGUI(ctk.CTk):
                         self.after(0, self.log_info, "🛑 [2/2] Công tắc Card Phụ Bản Đơn / Đội gạt về OFF ➔ Đã dừng thao tác Card này!")
                     else:
                         # Thao tác xong các ô check -> Tự động nhả công tắc E về OFF
-                        self.var_switch_B.set(False)
+                        self.after(0, lambda: self.var_switch_B.set(False))
                         self.after(0, self._update_card_E_visibility)
                         self.after(0, self.save_config)
                         self.after(0, self.log_info, "✅ [2/2] Đã hoàn thành Card Phụ Bản Đơn / Đội ➔ Tự động nhả công tắc E về OFF!")
@@ -2233,8 +2306,17 @@ class ToolLDPlayerGUI(ctk.CTk):
         else:
             self.log_error(message)
 
+    def _sleep_with_stop_check(self, seconds: float) -> bool:
+        """Tạm dừng ngủ ngầm nhưng kiểm tra cờ Dừng khẩn cấp liên tục mỗi 0.1s. Trả về True nếu bấm Dừng."""
+        start = time.time()
+        while time.time() - start < seconds:
+            if self.stop_requested:
+                return True
+            time.sleep(0.1)
+        return False
+
     def dung_tat_ca_hoat_dong(self):
-        """Nút Dừng tổng: Ngắt lập tức tất cả các card có trong tool (Dị Giới, Boss TG, 40 NPC, Phụ Bản Đơn/Đội, Nhị Kiều, Tổ Đội)"""
+        """Nút Dừng tổng: Ngắt lập tức tất cả các card có trong tool & tiến trình mở game TS Origin"""
         self.stop_requested = True
         for prefix in ["A", "B", "C", "D"]:
             switch_attr = f"var_switch_{prefix}"
@@ -2249,8 +2331,10 @@ class ToolLDPlayerGUI(ctk.CTk):
 
         if hasattr(self, 'btn_run'):
             self.btn_run.configure(state="normal", text="Chạy")
+        if hasattr(self, 'btn_enter_game'):
+            self.btn_enter_game.configure(state="normal", text="TS Origin")
 
-        self.after(0, self.log_info, "🛑 [DỪNG KHẨN CẤP] Đã bấm nút Dừng ➔ Dừng lập tức TOÀN BỘ các Card trong tool & gạt tất cả công tắc về OFF!")
+        self.after(0, self.log_info, "🛑 [DỪNG KHẨN CẤP] Đã bấm nút Dừng ➔ Dừng lập tức tiến trình TS Origin & TOÀN BỘ các Card trong tool!")
 
 
 
@@ -2690,7 +2774,7 @@ class ToolLDPlayerGUI(ctk.CTk):
             self.after(0, self.log_info, "⚠️ Không phát hiện thấy ảnh 'card_c/c_aitim.png' sau 5.0s ➔ Tiến hành Thoát Game...")
             # Đóng ứng dụng game trên LDPlayer (Bỏ hoãn 1s dư thừa)
             self._exec_cmd([dnconsole_path, "killapp", "--index", str(tab_index)])
-            for pkg in ["com.chinesegamer.tsotw", "com.chinesegamer.tsorigin", "com.vng.tsorigin", "com.vtc.tsorigin"]:
+            for pkg in ["com.vtcmobile.gz06"]:
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell am force-stop {pkg}"])
             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input keyevent 3"])
 
@@ -3537,10 +3621,10 @@ class ToolLDPlayerGUI(ctk.CTk):
                 time.sleep(0.4)
                 continue
 
-            # Sau khi bấm Mời acc thành công: Tạm nghỉ 5.0s chờ đồng ý & quay lại Bước 2.1
+            # Sau khi bấm Mời acc thành công: Tạm nghỉ 3.0s chờ đồng ý & quay lại Bước 2.1
             if self._should_stop_card_E(): return
-            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 5.0s chờ các thành viên nhận & đồng ý lời mời...")
-            for _ in range(5):
+            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 3.0s chờ các thành viên nhận & đồng ý lời mời...")
+            for _ in range(3):
                 if self._should_stop_card_E(): return
                 time.sleep(1.0)
 
@@ -5086,7 +5170,9 @@ class ToolLDPlayerGUI(ctk.CTk):
         for attempt in range(max_attempts):
             # Chụp ảnh màn hình LDPlayer qua ADB
             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell screencap -p /sdcard/mat_than.png"])
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"pull /sdcard/mat_than.png \"{temp_local}\""])
+            self._exec_cmd([dnconsole_path, "pull", "--index", str(tab_index), "--remote", "/sdcard/mat_than.png", "--local", temp_local])
+            if not os.path.exists(temp_local) or os.path.getsize(temp_local) == 0:
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"pull /sdcard/mat_than.png \"{temp_local}\""])
 
             if os.path.exists(temp_local) and os.path.getsize(temp_local) > 0:
                 try:

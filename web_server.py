@@ -205,13 +205,74 @@ HTML_PAGE = """<!DOCTYPE html>
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* LDPlayer Carousel Header */
+        .ld-carousel-wrapper {
+            position: sticky;
+            top: 53px;
+            z-index: 99;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+            padding: 8px 14px;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+        .ld-carousel-wrapper::-webkit-scrollbar { display: none; }
+        .ld-carousel {
+            display: inline-flex;
+            gap: 8px;
+        }
+        .ld-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .ld-pill:active { transform: scale(0.95); }
+        .ld-pill.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(2, 132, 199, 0.35));
+            border-color: #38bdf8;
+            color: #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        /* Touch Ripple Indicator */
+        .preview-box { position: relative; overflow: hidden; cursor: crosshair; }
+        .touch-ripple {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(56, 189, 248, 0.5);
+            border: 2px solid #38bdf8;
+            pointer-events: none;
+            animation: rippleAnim 0.6s ease-out forwards;
+            z-index: 10;
+        }
+        @keyframes rippleAnim {
+            0% { transform: scale(0.3); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
         /* Cards */
         .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
+            background: rgba(22, 32, 50, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.12);
             border-radius: 16px;
             padding: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
 
         .card-header {
@@ -396,7 +457,7 @@ HTML_PAGE = """<!DOCTYPE html>
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 8px;
-            max-height: 220px;
+            height: 280px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -446,8 +507,7 @@ HTML_PAGE = """<!DOCTYPE html>
             padding: 10px;
             font-family: monospace;
             font-size: 0.78rem;
-            min-height: 250px;
-            max-height: 380px;
+            height: 320px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -513,6 +573,12 @@ HTML_PAGE = """<!DOCTYPE html>
             background: linear-gradient(135deg, #0284c7, #38bdf8);
             color: white;
             box-shadow: 0 3px 12px rgba(56, 189, 248, 0.35);
+        }
+
+        .btn-exit {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: white;
+            box-shadow: 0 3px 12px rgba(75, 85, 99, 0.35);
         }
 
         /* Bottom Tab Navigation Bar */
@@ -599,6 +665,11 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
     </header>
 
+    <!-- LDPlayer Carousel Header -->
+    <div class="ld-carousel-wrapper">
+        <div class="ld-carousel" id="ldCarousel"></div>
+    </div>
+
     <div class="container">
 
         <!-- TAB 1: 👁️ MÀN HÌNH GAME -->
@@ -656,18 +727,11 @@ HTML_PAGE = """<!DOCTYPE html>
                 </div>
                 <div class="checkbox-group">
                     <label class="chk-label"><input type="checkbox" id="chk_A1" onchange="onCheckboxChanged('A1', this.checked)"> Boss</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_A3" onchange="onCheckboxChanged('A3', this.checked)"> Vé</label>
                 </div>
                 <div class="form-grid" style="margin-top: 10px;">
                     <div class="form-group">
                         <label>Vị Trí Tướng</label>
                         <select id="combo_A_char" onchange="onComboChanged('A_char', this.value)"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Số Vé Boss</label>
-                        <select id="combo_A_ve" onchange="onComboChanged('A_ve', this.value)">
-                            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                        </select>
                     </div>
                 </div>
             </div>
@@ -720,10 +784,15 @@ HTML_PAGE = """<!DOCTYPE html>
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">🏆 40 NPC / 2K (Card D)</span>
-                    <label class="switch">
-                        <input type="checkbox" id="switch_D" onchange="onSwitchChanged('D', this.checked)">
-                        <span class="slider"></span>
-                    </label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label class="chk-label" style="font-size:0.8rem; font-weight:600; color:var(--warning);">
+                            <input type="checkbox" id="chk_pause_D" onchange="onCheckboxChanged('pause_D', this.checked)"> ⏸️ Tạm Dừng
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="switch_D" onchange="onSwitchChanged('D', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="checkbox-group">
                     <label class="chk-label"><input type="checkbox" id="chk_D2" onchange="onCheckboxChanged('D2', this.checked)"> Tổ Đội</label>
@@ -783,7 +852,7 @@ HTML_PAGE = """<!DOCTYPE html>
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">📜 Nhật Ký Hoạt Động</span>
-                    <button class="btn-mini" onclick="fetchStatus()">🔄 Làm Mới</button>
+                    <button class="btn-mini" onclick="refreshLogs()">🔄 Làm Mới</button>
                 </div>
                 <div class="log-box" id="logConsole">
                     <div class="log-entry">Đang nạp nhật ký...</div>
@@ -795,9 +864,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <!-- Thanh Nút Thao Tác Cố Định (Fixed Action Bar) -->
     <div class="action-bar">
-        <button class="btn-action btn-launch" onclick="sendAction('launch_game')">🎮 Vào Game</button>
-        <button class="btn-action btn-run" id="btnRun" onclick="sendAction('run')">🚀 CHẠY</button>
-        <button class="btn-action btn-stop" onclick="sendAction('stop')">🛑 DỪNG</button>
+        <button class="btn-action btn-launch" onclick="sendAction('launch_game')">🎮 GAME</button>
+        <button class="btn-action btn-run" id="btnRun" onclick="sendAction('run')">🚀 RUN</button>
+        <button class="btn-action btn-stop" onclick="sendAction('stop')">🛑 STOP</button>
+        <button class="btn-action btn-exit" onclick="sendAction('exit_game')">🚪 EXIT</button>
     </div>
 
     <!-- Thanh Chuyển Tab Đáy Màn Hình (Mobile Bottom Navigation) -->
@@ -844,6 +914,11 @@ HTML_PAGE = """<!DOCTYPE html>
             setTimeout(() => t.classList.remove('show'), 2000);
         }
 
+        async function refreshLogs() {
+            await fetchStatus();
+            showToast('🔄 Đã làm mới nhật ký!');
+        }
+
         let isDisconnected = false;
         async function fetchStatus() {
             try {
@@ -866,6 +941,8 @@ HTML_PAGE = """<!DOCTYPE html>
             }
         }
 
+        let lastServerData = null;
+
         function renderUI(data) {
             const statusDot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
@@ -875,14 +952,14 @@ HTML_PAGE = """<!DOCTYPE html>
                 statusDot.className = 'status-dot running';
                 statusText.innerText = 'Đang chạy Auto...';
                 if (btnRun) {
-                    btnRun.innerText = '⏳ ĐANG CHẠY';
+                    btnRun.innerText = '⏳ RUNNING';
                     btnRun.style.opacity = '0.7';
                 }
             } else {
                 statusDot.className = 'status-dot';
                 statusText.innerText = 'Sẵn sàng';
                 if (btnRun) {
-                    btnRun.innerText = '🚀 CHẠY';
+                    btnRun.innerText = '🚀 RUN';
                     btnRun.style.opacity = '1';
                 }
             }
@@ -935,37 +1012,8 @@ HTML_PAGE = """<!DOCTYPE html>
                 });
             }
 
-            // Danh sách A
-            const listABox = document.getElementById('list_E_A_box');
-            if (listABox) {
-                const availA = (data.list_E_A || []).filter(name => !(data.list_E_B || []).includes(name));
-                if (availA.length === 0) {
-                    listABox.innerHTML = '<div style="color:#64748b; font-size:0.75rem; padding:6px; text-align:center;">(Đã thêm hết)</div>';
-                } else {
-                    listABox.innerHTML = availA.map(name => `
-                        <div class="team-item" onclick="sendAction('add_to_team', {char_name: '${name}'})">
-                            <span>${name}</span>
-                            <span style="color:var(--accent); font-weight:700; font-size:0.95rem;">➔</span>
-                        </div>
-                    `).join('');
-                }
-            }
-
-            // Danh sách B
-            const listBBox = document.getElementById('list_E_B_box');
-            if (listBBox) {
-                const teamB = data.list_E_B || [];
-                if (teamB.length === 0) {
-                    listBBox.innerHTML = '<div style="color:#64748b; font-size:0.75rem; padding:6px; text-align:center;">(Trống - bấm ➔ để thêm)</div>';
-                } else {
-                    listBBox.innerHTML = teamB.map(name => `
-                        <div class="team-item">
-                            <span>${name}</span>
-                            <button class="btn-del-member" onclick="event.stopPropagation(); sendAction('remove_from_team', {char_name: '${name}'})">✕</button>
-                        </div>
-                    `).join('');
-                }
-            }
+            lastServerData = data;
+            renderTeamLists(data);
 
             const now = Date.now();
 
@@ -997,6 +1045,76 @@ HTML_PAGE = """<!DOCTYPE html>
                 logConsole.innerHTML = data.logs.map(l => `<div class="log-entry">${l}</div>`).join('');
                 logConsole.scrollTop = logConsole.scrollHeight;
             }
+        }
+
+        const pendingAdds = new Set();
+        const pendingRemoves = new Set();
+
+        function renderTeamLists(data) {
+            if (!data) return;
+            const serverListB = data.list_E_B || [];
+
+            // Auto reconcile confirmed pending actions
+            pendingAdds.forEach(name => {
+                if (serverListB.includes(name)) pendingAdds.delete(name);
+            });
+            pendingRemoves.forEach(name => {
+                if (!serverListB.includes(name)) pendingRemoves.delete(name);
+            });
+
+            // Calculate effective List B
+            let effectiveTeamB = [...serverListB];
+            pendingAdds.forEach(name => {
+                if (!effectiveTeamB.includes(name)) effectiveTeamB.push(name);
+            });
+            pendingRemoves.forEach(name => {
+                effectiveTeamB = effectiveTeamB.filter(c => c !== name);
+            });
+
+            const listABox = document.getElementById('list_E_A_box');
+            if (listABox) {
+                const availA = (data.list_E_A || []).filter(name => !effectiveTeamB.includes(name));
+                if (availA.length === 0) {
+                    listABox.innerHTML = '<div style="color:#64748b; font-size:0.75rem; padding:6px; text-align:center;">(Đã thêm hết)</div>';
+                } else {
+                    listABox.innerHTML = availA.map(name => `
+                        <div class="team-item" onclick="addMemberOptimistic('${name}')">
+                            <span>${name}</span>
+                            <span style="color:var(--accent); font-weight:700; font-size:0.95rem;">➔</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            const listBBox = document.getElementById('list_E_B_box');
+            if (listBBox) {
+                if (effectiveTeamB.length === 0) {
+                    listBBox.innerHTML = '<div style="color:#64748b; font-size:0.75rem; padding:6px; text-align:center;">(Trống - bấm ➔ để thêm)</div>';
+                } else {
+                    listBBox.innerHTML = effectiveTeamB.map(name => `
+                        <div class="team-item">
+                            <span>${name}</span>
+                            <button class="btn-del-member" onclick="event.stopPropagation(); removeMemberOptimistic('${name}')">✕</button>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        function addMemberOptimistic(name) {
+            pendingRemoves.delete(name);
+            pendingAdds.add(name);
+            renderTeamLists(lastServerData || {});
+            sendAction('add_to_team', {char_name: name}, false);
+            setTimeout(fetchStatus, 600);
+        }
+
+        function removeMemberOptimistic(name) {
+            pendingAdds.delete(name);
+            pendingRemoves.add(name);
+            renderTeamLists(lastServerData || {});
+            sendAction('remove_from_team', {char_name: name}, false);
+            setTimeout(fetchStatus, 600);
         }
 
         const userLocks = {};
@@ -1140,6 +1258,28 @@ HTML_PAGE = """<!DOCTYPE html>
         fetchStatus();
         setInterval(fetchStatus, 3000);
         toggleAutoStream(true);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const img = document.getElementById('screenImg');
+            if (img) {
+                img.addEventListener('click', function(e) {
+                    const rect = img.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const clickY = e.clientY - rect.top;
+                    const realX = Math.round((clickX / rect.width) * 1280);
+                    const realY = Math.round((clickY / rect.height) * 720);
+                    
+                    sendAction('tap', { x: realX, y: realY });
+                    
+                    const ripple = document.createElement('div');
+                    ripple.className = 'touch-ripple';
+                    ripple.style.left = (clickX - 16) + 'px';
+                    ripple.style.top = (clickY - 16) + 'px';
+                    img.parentNode.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                });
+            }
+        });
     </script>
 </body>
 </html>
@@ -1164,6 +1304,9 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
             body = HTML_PAGE.encode('utf-8')
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Connection", "close")
             self.end_headers()
@@ -1187,7 +1330,6 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
 
             checkboxes = {
                 "A1": app.var_A1.get() if hasattr(app, 'var_A1') else False,
-                "A3": app.var_A3.get() if hasattr(app, 'var_A3') else False,
                 "B_don": app.var_B_don.get() if hasattr(app, 'var_B_don') else False,
                 "B_doi": app.var_B_doi.get() if hasattr(app, 'var_B_doi') else False,
                 "B1": app.var_B1.get() if hasattr(app, 'var_B1') else False,
@@ -1201,7 +1343,8 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                 "D2": app.var_D2.get() if hasattr(app, 'var_D2') else False,
                 "D3": app.var_D3.get() if hasattr(app, 'var_D3') else False,
                 "D4": app.var_D4.get() if hasattr(app, 'var_D4') else False,
-                "E_quan_su": app.var_E_quan_su.get() if hasattr(app, 'var_E_quan_su') else False
+                "E_quan_su": app.var_E_quan_su.get() if hasattr(app, 'var_E_quan_su') else False,
+                "pause_D": app.var_pause_D.get() if hasattr(app, 'var_pause_D') else False
             }
 
             combos = {
@@ -1295,15 +1438,19 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
 
             if action == "run":
                 app.after(0, app.xu_ly_nut_chay)
-                msg = "▶️ Bắt đầu Chạy Tool!"
+                msg = "▶️ Bắt đầu Run Tool!"
 
             elif action == "stop":
                 app.after(0, app.dung_tat_ca_hoat_dong)
-                msg = "🛑 Đã Dừng khẩn cấp!"
+                msg = "🛑 Đã Stop khẩn cấp!"
 
             elif action == "launch_game":
                 app.after(0, app.xu_ly_ts_origin)
                 msg = "🎮 Đang mở TS Origin..."
+
+            elif action == "exit_game":
+                app.after(0, app.xu_ly_exit_game)
+                msg = "🚪 Đang đóng game về màn hình chính LDPlayer..."
 
             elif action == "refresh_tabs":
                 app.after(0, app.refresh_ld_tabs_async)
@@ -1318,14 +1465,18 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                     app.after(0, _set_t)
                     msg = f"Đã chọn tab: {tab}"
 
-            elif action == "set_server":
-                server = req.get("server")
-                if server and hasattr(app, 'combo_server'):
-                    def _set_s():
-                        app.combo_server.set(server)
-                        app._on_server_changed(server)
-                    app.after(0, _set_s)
-                    msg = f"Đã chọn máy chủ: {server}"
+            elif action == "tap":
+                x = req.get("x")
+                y = req.get("y")
+                tab, idx = app._get_selected_ld_info() if hasattr(app, '_get_selected_ld_info') else (None, None)
+                if idx is not None and x is not None and y is not None:
+                    dnconsole_path = os.path.join(app.ld_path, "ldconsole.exe")
+                    if not os.path.exists(dnconsole_path):
+                        dnconsole_path = os.path.join(app.ld_path, "dnconsole.exe")
+                    app._exec_cmd([dnconsole_path, "adb", "--index", str(idx), "--command", f"shell input tap {int(x)} {int(y)}"])
+                    msg = f"👆 Đã chạm ({int(x)}, {int(y)})"
+                else:
+                    msg = "Vui lòng chọn tab LDPlayer trước"
 
             elif action == "set_switch":
                 s_name = req.get("name")
@@ -1356,6 +1507,8 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                             app._on_D3_toggled()
                         elif cb_name == "D4" and hasattr(app, '_on_D4_toggled'):
                             app._on_D4_toggled()
+                        elif cb_name == "pause_D" and hasattr(app, '_on_pause_D_toggled'):
+                            app._on_pause_D_toggled()
                         elif cb_name == "E_quan_su" and hasattr(app, '_on_checkbox_toggled'):
                             app._on_checkbox_toggled()
                         else:

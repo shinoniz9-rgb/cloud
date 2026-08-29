@@ -116,7 +116,7 @@ HTML_PAGE = """<!DOCTYPE html>
         body {
             background-color: var(--bg);
             color: var(--text);
-            padding-bottom: calc(145px + env(safe-area-inset-bottom, 0px));
+            padding-bottom: calc(165px + env(safe-area-inset-bottom, 0px));
             overflow-x: hidden;
             user-select: none;
         }
@@ -506,7 +506,7 @@ HTML_PAGE = """<!DOCTYPE html>
             border-radius: 10px;
             padding: 10px;
             font-family: monospace;
-            font-size: 0.78rem;
+            font-size: 0.85rem;
             height: 320px;
             overflow-y: auto;
             display: flex;
@@ -523,19 +523,20 @@ HTML_PAGE = """<!DOCTYPE html>
         /* Fixed Action Bar (Floating above tabs) */
         .action-bar {
             position: fixed;
-            bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(65px + env(safe-area-inset-bottom, 0px));
             left: 0;
             right: 0;
-            background: rgba(17, 24, 39, 0.95);
+            background: rgba(17, 24, 39, 0.96);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border-top: 1px solid var(--border);
             padding: 8px 14px;
             display: flex;
             gap: 8px;
-            z-index: 90;
+            z-index: 101;
             max-width: 600px;
             margin: 0 auto;
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
         }
 
         .btn-action {
@@ -719,19 +720,19 @@ HTML_PAGE = """<!DOCTYPE html>
             <!-- Card A: Boss Thế Giới -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">👑 Boss Thế Giới (Card A)</span>
+                    <span class="card-title">🔥 Boss Thế Giới (Card A)</span>
                     <label class="switch">
                         <input type="checkbox" id="switch_A" onchange="onSwitchChanged('A', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div class="checkbox-group">
-                    <label class="chk-label"><input type="checkbox" id="chk_A1" onchange="onCheckboxChanged('A1', this.checked)"> Boss</label>
-                </div>
-                <div class="form-grid" style="margin-top: 10px;">
-                    <div class="form-group">
-                        <label>Vị Trí Tướng</label>
-                        <select id="combo_A_char" onchange="onComboChanged('A_char', this.value)"></select>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                        <input type="checkbox" id="chk_A1" onchange="onCheckboxChanged('A1', this.checked)"> 👑 Boss
+                    </label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                        <select id="combo_A_char" style="width:125px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('A_char', this.value)"></select>
                     </div>
                 </div>
             </div>
@@ -745,22 +746,42 @@ HTML_PAGE = """<!DOCTYPE html>
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="chk-label"><input type="checkbox" id="chk_B_don" onchange="onCheckboxChanged('B_don', this.checked)"> Đơn (Cá Nhân)</label>
-                        <select id="combo_B_don_char" onchange="onComboChanged('B_don_char', this.value)" style="margin-top:4px;"></select>
+
+                <!-- Hàng 1: Split Đơn và Đội -->
+                <div style="display:flex; align-items:stretch; gap:12px; position:relative; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+                    <!-- Đơn (Cá nhân) -->
+                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                            <input type="checkbox" id="chk_B_don" onchange="onCheckboxChanged('B_don', this.checked)"> 👤 Đơn (Cá Nhân)
+                        </label>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                            <select id="combo_B_don_char" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('B_don_char', this.value)"></select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="chk-label"><input type="checkbox" id="chk_B_doi" onchange="onCheckboxChanged('B_doi', this.checked)"> Đội (Tổ Đội)</label>
-                        <select id="combo_B_team_char" onchange="onComboChanged('B_team_char', this.value)" style="margin-top:4px;"></select>
+
+                    <!-- Vạch đứng mờ -->
+                    <div style="width:1px; background:rgba(255,255,255,0.12); border-radius:1px;"></div>
+
+                    <!-- Đội (Tổ đội) -->
+                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                            <input type="checkbox" id="chk_B_doi" onchange="onCheckboxChanged('B_doi', this.checked)"> 👥 Đội (Tổ Đội)
+                        </label>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                            <select id="combo_B_team_char" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('B_team_char', this.value)"></select>
+                        </div>
                     </div>
                 </div>
-                <div class="checkbox-group" style="margin-top: 10px;">
-                    <label class="chk-label"><input type="checkbox" id="chk_B1" onchange="onCheckboxChanged('B1', this.checked)"> PB 20</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_B2" onchange="onCheckboxChanged('B2', this.checked)"> PB 50</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_B3" onchange="onCheckboxChanged('B3', this.checked)"> PB 80</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_B4" onchange="onCheckboxChanged('B4', this.checked)"> PB 110</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_B5" onchange="onCheckboxChanged('B5', this.checked)"> PB 140</label>
+
+                <!-- Hàng 2: Các mốc Phụ Bản (PB 20 - PB 140) -->
+                <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B1" onchange="onCheckboxChanged('B1', this.checked)"> PB 20</label>
+                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B2" onchange="onCheckboxChanged('B2', this.checked)"> PB 50</label>
+                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B3" onchange="onCheckboxChanged('B3', this.checked)"> PB 80</label>
+                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B4" onchange="onCheckboxChanged('B4', this.checked)"> PB 110</label>
+                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B5" onchange="onCheckboxChanged('B5', this.checked)"> PB 140</label>
                 </div>
             </div>
 
@@ -773,17 +794,19 @@ HTML_PAGE = """<!DOCTYPE html>
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div class="checkbox-group">
-                    <label class="chk-label"><input type="checkbox" id="chk_C1" onchange="onCheckboxChanged('C1', this.checked)"> Phúc Thần</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_C2" onchange="onCheckboxChanged('C2', this.checked)"> Ký Lục</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_C3" onchange="onCheckboxChanged('C3', this.checked)"> Rút Gọn</label>
+                <div style="display:flex; align-items:center; justify-content:space-around; background:rgba(255,255,255,0.02); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C1" onchange="onCheckboxChanged('C1', this.checked)"> Phúc Thần</label>
+                    <div style="width:1px; height:18px; background:rgba(255,255,255,0.12);"></div>
+                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C2" onchange="onCheckboxChanged('C2', this.checked)"> Ký Lục</label>
+                    <div style="width:1px; height:18px; background:rgba(255,255,255,0.12);"></div>
+                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C3" onchange="onCheckboxChanged('C3', this.checked)"> Rút Gọn</label>
                 </div>
             </div>
 
-            <!-- Card D: 40 NPC / 2K -->
+            <!-- Card D: 40 NPC / 2K - NHỊ KIỀU -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">🏆 40 NPC / 2K (Card D)</span>
+                    <span class="card-title">🏛️ 40 NPC / 2K - NHỊ KIỀU (Card D)</span>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <label class="chk-label" style="font-size:0.8rem; font-weight:600; color:var(--warning);">
                             <input type="checkbox" id="chk_pause_D" onchange="onCheckboxChanged('pause_D', this.checked)"> ⏸️ Tạm Dừng
@@ -794,23 +817,44 @@ HTML_PAGE = """<!DOCTYPE html>
                         </label>
                     </div>
                 </div>
-                <div class="checkbox-group">
-                    <label class="chk-label"><input type="checkbox" id="chk_D2" onchange="onCheckboxChanged('D2', this.checked)"> Tổ Đội</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_D3" onchange="onCheckboxChanged('D3', this.checked)"> 40 NPC</label>
-                    <label class="chk-label"><input type="checkbox" id="chk_D4" onchange="onCheckboxChanged('D4', this.checked)"> Nhị Kiều</label>
-                </div>
-                <div class="form-grid" style="margin-top: 10px;">
-                    <div class="form-group">
-                        <label>Chế độ 40 NPC</label>
-                        <select id="combo_D_chien_dau" onchange="onComboChanged('D_chien_dau', this.value)">
-                            <option value="Auto">Auto</option><option value="Click">Click</option>
-                        </select>
+
+                <!-- Hàng 1: Tổ Đội + Dropdown Vị Trí -->
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                        <input type="checkbox" id="chk_D2" onchange="onCheckboxChanged('D2', this.checked)"> 👥 Tổ Đội
+                    </label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                        <select id="combo_D_team_char" style="width:125px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_team_char', this.value)"></select>
                     </div>
-                    <div class="form-group">
-                        <label>Mốc Nhị Kiều</label>
-                        <select id="combo_D_tang" onchange="onComboChanged('D_tang', this.value)">
-                            <option value="Trệt - 10">Trệt - 10</option><option value="11 - 14">11 - 14</option>
-                        </select>
+                </div>
+
+                <!-- Hàng 2 & 3: Bố cục 2 Cột song song đồng bộ 100% -->
+                <div style="display:flex; align-items:stretch; gap:10px;">
+                    <!-- Cột Trái: 40 NPC -->
+                    <div style="flex:1; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
+                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                            <input type="checkbox" id="chk_D3" onchange="onCheckboxChanged('D3', this.checked)"> ⚔️ 40 NPC
+                        </label>
+                        <div style="margin-top:6px;">
+                            <label style="display:block; font-size:0.75rem; color:#9CA3AF; margin-bottom:4px;">Chế độ:</label>
+                            <select id="combo_D_chien_dau" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_chien_dau', this.value)">
+                                <option value="Auto">Auto</option><option value="Click">Click</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Cột Phải: Nhị Kiều -->
+                    <div style="flex:1; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
+                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                            <input type="checkbox" id="chk_D4" onchange="onCheckboxChanged('D4', this.checked)"> 🗼 Nhị Kiều
+                        </label>
+                        <div style="margin-top:6px;">
+                            <label style="display:block; font-size:0.75rem; color:#9CA3AF; margin-bottom:4px;">Mốc tầng:</label>
+                            <select id="combo_D_tang" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_tang', this.value)">
+                                <option value="Trệt - 10">Trệt - 10</option><option value="11 - 14">11 - 14</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -822,26 +866,52 @@ HTML_PAGE = """<!DOCTYPE html>
                 <div class="card-header">
                     <span class="card-title">👥 Quản Lý Tổ Đội (Card E)</span>
                 </div>
-                <div class="form-grid" style="align-items: center; margin-bottom: 8px;">
-                    <label class="chk-label"><input type="checkbox" id="chk_E_quan_su" onchange="onCheckboxChanged('E_quan_su', this.checked)"> Quân Sư</label>
-                    <div class="form-group">
-                        <label>Chọn Quân Sư</label>
-                        <select id="combo_E_quan_su" onchange="onComboChanged('E_quan_su', this.value)"></select>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                        <input type="checkbox" id="chk_E_quan_su" onchange="onCheckboxChanged('E_quan_su', this.checked)"> 🧙‍♂️ Quân Sư
+                    </label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.75rem; color:#9CA3AF;">Nhân vật:</span>
+                        <select id="combo_E_quan_su" style="width:130px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('E_quan_su', this.value)"></select>
                     </div>
                 </div>
-                
+
                 <div class="team-list-container">
                     <div>
-                        <label style="display:block; margin-bottom:4px; font-size:0.75rem; color:var(--text-muted);">Tướng Có Sẵn (Chạm để thêm ➔)</label>
+                        <label style="display:block; margin-bottom:4px; font-size:0.75rem; color:var(--text-muted); font-weight:600;">Tướng Có Sẵn (Chạm ➔ thêm)</label>
                         <div class="team-box" id="list_E_A_box">
                             <div style="color:#64748b; font-size:0.75rem; padding:4px;">Đang nạp...</div>
                         </div>
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom:4px; font-size:0.75rem; color:var(--text-muted);">Đội Hình (Chạm ✕ để xóa)</label>
+                        <label style="display:block; margin-bottom:4px; font-size:0.75rem; color:var(--text-muted); font-weight:600;">Đội Hình (Chạm ✕ xóa)</label>
                         <div class="team-box" id="list_E_B_box">
                             <div style="color:#64748b; font-size:0.75rem; padding:4px;">(Trống)</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: ⚔️ CHIẾN ĐẤU -->
+        <div class="tab-pane" id="tabPane_combat">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">⚔️ Cấu Hình Chiến Đấu (Card F)</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                        <input type="checkbox" id="chk_buff" onchange="onCheckboxChanged('buff', this.checked)"> ⚡ Skill <span style="font-size: 0.72rem; color: #9CA3AF; margin-left: 2px;">( Tắt Auto )</span>
+                    </label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.75rem; color:#9CA3AF;">Loại Buff:</span>
+                        <select id="combo_buff" style="width:130px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('buff', this.value)">
+                            <option value="Buff HP">Buff HP</option>
+                            <option value="Buff SP">Buff SP</option>
+                            <option value="Buff HP / SP">Buff HP / SP</option>
+                            <option value="Buff 2HP / SP">Buff 2HP / SP</option>
+                            <option value="Buff 3HP / SP">Buff 3HP / SP</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -883,6 +953,10 @@ HTML_PAGE = """<!DOCTYPE html>
         <button class="tab-button" onclick="switchTab('team', this)">
             <span class="tab-icon">👥</span>
             <span>Tổ Đội</span>
+        </button>
+        <button class="tab-button" onclick="switchTab('combat', this)">
+            <span class="tab-icon">⚔️</span>
+            <span>Chiến Đấu</span>
         </button>
         <button class="tab-button" onclick="switchTab('logs', this)">
             <span class="tab-icon">📜</span>
@@ -988,7 +1062,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 selectServer.value = data.server;
             }
 
-            const charCombos = ['combo_A_char', 'combo_B_don_char', 'combo_B_team_char'];
+            const charCombos = ['combo_A_char', 'combo_B_don_char', 'combo_B_team_char', 'combo_D_team_char'];
             charCombos.forEach(cid => {
                 const c = document.getElementById(cid);
                 if (c && c.children.length === 0) {
@@ -1344,7 +1418,8 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                 "D3": app.var_D3.get() if hasattr(app, 'var_D3') else False,
                 "D4": app.var_D4.get() if hasattr(app, 'var_D4') else False,
                 "E_quan_su": app.var_E_quan_su.get() if hasattr(app, 'var_E_quan_su') else False,
-                "pause_D": app.var_pause_D.get() if hasattr(app, 'var_pause_D') else False
+                "pause_D": app.var_pause_D.get() if hasattr(app, 'var_pause_D') else False,
+                "buff": app.var_buff.get() if hasattr(app, 'var_buff') else False
             }
 
             combos = {
@@ -1355,7 +1430,8 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                 "D_team_char": app.combo_D_team_char.get() if hasattr(app, 'combo_D_team_char') else "Xuất Chiến",
                 "D_chien_dau": app.combo_D_chien_dau.get() if hasattr(app, 'combo_D_chien_dau') else "Auto",
                 "D_tang": app.combo_D_tang.get() if hasattr(app, 'combo_D_tang') else "Trệt - 10",
-                "E_quan_su": app.combo_E_quan_su.get() if hasattr(app, 'combo_E_quan_su') else "(Trống)"
+                "E_quan_su": app.combo_E_quan_su.get() if hasattr(app, 'combo_E_quan_su') else "(Trống)",
+                "buff": app.combo_buff.get() if hasattr(app, 'combo_buff') else "Buff HP"
             }
 
             is_running = False
@@ -1495,7 +1571,12 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
             elif action == "set_checkbox":
                 cb_name = req.get("name")
                 cb_val = bool(req.get("value"))
-                var_name = f"var_{cb_name}"
+                if cb_name in ["buff", "var_buff"]:
+                    var_name = "var_buff"
+                elif cb_name.startswith("var_"):
+                    var_name = cb_name
+                else:
+                    var_name = f"var_{cb_name}"
 
                 if hasattr(app, var_name):
                     def _toggle_cb():
@@ -1503,14 +1584,16 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                         if cb_name in ["D2", "B_doi"] and hasattr(app, '_update_card_E_visibility'):
                             app._update_card_E_visibility()
                             app._on_checkbox_toggled()
-                        elif cb_name == "D3" and hasattr(app, '_on_D3_toggled'):
+                        elif cb_name in ["D3", "var_D3"] and hasattr(app, '_on_D3_toggled'):
                             app._on_D3_toggled()
-                        elif cb_name == "D4" and hasattr(app, '_on_D4_toggled'):
+                        elif cb_name in ["D4", "var_D4"] and hasattr(app, '_on_D4_toggled'):
                             app._on_D4_toggled()
-                        elif cb_name == "pause_D" and hasattr(app, '_on_pause_D_toggled'):
+                        elif cb_name in ["pause_D", "var_pause_D"] and hasattr(app, '_on_pause_D_toggled'):
                             app._on_pause_D_toggled()
-                        elif cb_name == "E_quan_su" and hasattr(app, '_on_checkbox_toggled'):
+                        elif cb_name in ["E_quan_su", "var_E_quan_su"] and hasattr(app, '_on_checkbox_toggled'):
                             app._on_checkbox_toggled()
+                        elif cb_name in ["buff", "var_buff"] and hasattr(app, '_on_skill_toggled'):
+                            app._on_skill_toggled()
                         else:
                             app._on_checkbox_toggled()
                     app.after(0, _toggle_cb)
@@ -1519,7 +1602,12 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
             elif action == "set_combo":
                 c_name = req.get("name")
                 c_val = req.get("value")
-                combo_widget_name = f"combo_{c_name}"
+                if c_name in ["buff", "combo_buff"]:
+                    combo_widget_name = "combo_buff"
+                elif c_name.startswith("combo_"):
+                    combo_widget_name = c_name
+                else:
+                    combo_widget_name = f"combo_{c_name}"
 
                 if hasattr(app, combo_widget_name):
                     def _set_cmb():

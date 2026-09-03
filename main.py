@@ -4175,9 +4175,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             if self._should_stop_card_E(): return
             f_moi_x, f_moi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_e/e_moi.png", threshold=0.85, region=(175, 165, 1105, 605))
             if f_moi_x is not None and f_moi_y is not None:
-                self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_e/e_moi.png' tại ({f_moi_x}, {f_moi_y})! Tap click ➔ Hoãn 0.4s...")
+                self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_e/e_moi.png' tại ({f_moi_x}, {f_moi_y})! Tap click ➔ Hoãn 0.3s mở bảng danh sách bạn bè...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {f_moi_x} {f_moi_y}"])
-                time.sleep(0.4)
+                time.sleep(0.3)
             else:
                 self.after(0, self.log_info, "⚠️ Chưa quét thấy ảnh 'card_e/e_moi.png' trên màn hình ➔ Thử lại sau 1.0s...")
                 time.sleep(1.0)
@@ -4201,9 +4201,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     if found_x is not None and found_y is not None:
                         invite_x = found_x + 205
                         invite_y = found_y
-                        self.after(0, self.log_info, f"🎯 Phát hiện thành viên tiếp theo '{char_name}' tại ({found_x}, {found_y})! Tap nút Mời ({invite_x}, {invite_y}) ➔ Hoãn 0.5s...")
+                        self.after(0, self.log_info, f"🎯 Phát hiện thành viên tiếp theo '{char_name}' tại ({found_x}, {found_y})! Tap nút Mời ({invite_x}, {invite_y}) ➔ Hoãn 0.3s...")
                         self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {invite_x} {invite_y}"])
-                        time.sleep(0.5)
+                        time.sleep(0.3)
                         already_invited.add(char_name)
                         return True, char_name
                 return False, None
@@ -4211,39 +4211,37 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             # 1. Quét tìm ngay trên màn hình hiện tại (trước khi vuốt)
             invited_any, char_done = scan_and_invite_mode2(still_missing)
 
-            # 2. Chiều Vuốt XUỐNG thông minh: input swipe 625 410 625 260 1000 (Tối đa 10 lần)
+            # 2. Chiều Vuốt XUỐNG thông minh: input swipe 625 410 625 260 800 (giữ 0.8s) ➔ Hoãn 0.5s (Tối đa 10 lần)
             if not invited_any and still_missing:
                 for swipe_down_cnt in range(10):
                     if self._should_stop_card_E() or not still_missing: break
-                    self.after(0, self.log_info, f"📜 [Vuốt xuống {swipe_down_cnt+1}/10] Swipe (625, 410 ➔ 625, 260 1000ms)...")
-                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 410 625 260 1000"])
-                    time.sleep(0.8)
+                    self.after(0, self.log_info, f"📜 [Vuốt xuống {swipe_down_cnt+1}/10] Swipe 625 410 625 260 800 (giữ 0.8s) ➔ Hoãn 0.5s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 410 625 260 800"])
+                    time.sleep(0.5)
                     invited_any, char_done = scan_and_invite_mode2(still_missing)
                     if invited_any: break
 
-            # 3. Chiều Vuốt LÊN thông minh: input swipe 625 260 625 410 2200 (Tối đa 8 lần)
+            # 3. Chiều Vuốt LÊN thông minh: input swipe 625 260 625 410 2200 (giữ 2.2s) ➔ Hoãn 0.5s (Tối đa 8 lần)
             if not invited_any and still_missing:
                 for swipe_up_cnt in range(8):
                     if self._should_stop_card_E() or not still_missing: break
-                    self.after(0, self.log_info, f"📜 [Vuốt lên {swipe_up_cnt+1}/8] Swipe (625, 260 ➔ 625, 410 2200ms)...")
+                    self.after(0, self.log_info, f"📜 [Vuốt lên {swipe_up_cnt+1}/8] Swipe 625 260 625 410 2200 (giữ 2.2s) ➔ Hoãn 0.5s...")
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 260 625 410 2200"])
-                    time.sleep(0.8)
+                    time.sleep(0.5)
                     invited_any, char_done = scan_and_invite_mode2(still_missing)
                     if invited_any: break
 
             # 4. Tự Động Sửa Lỗi Nếu Không Tìm Thấy
             if not invited_any:
-                self.after(0, self.log_info, "⚠️ [Thao Tác 2 - Sửa Lỗi] Sau 10 lượt vuốt xuống & 8 lượt vuốt lên không tìm thấy acc ➔ Tap (330, 25) tắt bảng Mời ➔ Hoãn 0.4s & quay lại Bước 2.1...")
+                self.after(0, self.log_info, "⚠️ [Thao Tác 2 - Sửa Lỗi] Sau 10 lượt vuốt xuống & 8 lượt vuốt lên không tìm thấy acc ➔ Tap (330, 25) tắt bảng Mời ➔ Hoãn 0.3s & quay lại kiểm tra sảnh phòng...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 330 25"])
-                time.sleep(0.4)
+                time.sleep(0.3)
                 continue
 
-            # Sau khi bấm Mời acc thành công: Tạm nghỉ 2.0s chờ đồng ý & quay lại Bước 2.1
+            # Sau khi bấm Mời acc thành công: Tạm nghỉ 0.5s chờ đồng ý & quay lại Bước 2.1
             if self._should_stop_card_E(): return
-            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 2.0s chờ các thành viên nhận & đồng ý lời mời...")
-            for _ in range(2):
-                if self._should_stop_card_E(): return
-                time.sleep(1.0)
+            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 0.5s chờ thành viên nhận và vào phòng...")
+            time.sleep(0.5)
 
     def _execute_card_E_for_mode(self, dnconsole_path: str, tab_name: str, tab_index: str, mode: int):
         """

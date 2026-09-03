@@ -732,6 +732,14 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             if hasattr(self, 'var_ld_path'):
                 config["ld_path"] = self.var_ld_path.get().strip()
 
+            # Luôn bảo tồn 2 dòng cấu hình ngrok
+            if "ngrok_authtoken" not in config:
+                config["ngrok_authtoken"] = "3IR0jDxxFPLsNAP9UbnCxFpPXVJ_Mgs51iujUEfsCqJg4JTH"
+            if "fixed_domain" not in config:
+                config["fixed_domain"] = "https://crusader-visor-disparity.ngrok-free.dev"
+            if "ngrok_domain" not in config:
+                config["ngrok_domain"] = "https://crusader-visor-disparity.ngrok-free.dev"
+
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
         except Exception:
@@ -1133,16 +1141,12 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             self.after(0, self.log_error, f"❌ Lỗi luồng thực thi Skill song song: {str(e)}")
 
     def _tap_login_auto_twice(self, dnconsole_path: str, tab_index: str):
-        """Quét và tap 2 lần cách nhau 0.15s ảnh card_top/login/login_auto.png (85%, ROI 0,100,240,190)"""
+        """Tap 2 lần cách nhau 0.15s vào tọa độ nút Auto (190, 140)"""
         for tap_idx in range(1, 3):
-            if not self.var_buff.get() or self.stop_requested:
+            if self.stop_requested:
                 break
-            auto_x, auto_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_auto.png", threshold=0.85, region=(0, 100, 240, 190))
-            if auto_x is not None and auto_y is not None:
-                self.after(0, self.log_info, f"🎯 [SKILL] Mắt thần phát hiện 'login_auto.png' (85%) tại ({auto_x}, {auto_y}) ➔ Tap lần {tap_idx}/2...")
-                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {auto_x} {auto_y}"])
-            else:
-                self.after(0, self.log_warning, f"⚠️ [SKILL] Không tìm thấy 'login_auto.png' (85%) ở lần thử {tap_idx}/2")
+            self.after(0, self.log_info, f"👉 [SKILL] Tap nút Auto (190, 140) lần {tap_idx}/2...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 190 140"])
             time.sleep(0.15)
 
     def _check_and_tap_f_tieptheo(self, dnconsole_path: str, tab_index: str):
@@ -1200,7 +1204,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         # 2. Tiếp tục quét tìm ảnh card_f/skill/f_hp.png (85%) trong 0.5s
         hp_x, hp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_hp.png", threshold=0.85, region=(640, 0, 1280, 145))
         if hp_x is None or hp_y is None:
-            self.after(0, self.log_info, "⚠️ [SKILL - BUFF HP] KHÔNG thấy 'card_f/skill/f_hp.png' (85%) ➔ Quét/Tap 2 lần 'login_auto.png' hoãn 5s...")
+            self.after(0, self.log_info, "⚠️ [SKILL - BUFF HP] KHÔNG thấy 'card_f/skill/f_hp.png' (85%) ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
             self._tap_login_auto_twice(dnconsole_path, tab_index)
             if self._sleep_with_stop_check(5.0): return
         else:
@@ -1214,7 +1218,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             time.sleep(0.2)
 
             if not self.var_buff.get() or self.stop_requested: return
-            self.after(0, self.log_info, "🎯 [SKILL - BUFF HP] Quét/Tap 2 lần 'login_auto.png' ➔ Hoãn 5s...")
+            self.after(0, self.log_info, "🎯 [SKILL - BUFF HP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
             self._tap_login_auto_twice(dnconsole_path, tab_index)
             if self._sleep_with_stop_check(5.0): return
 
@@ -1254,7 +1258,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         sp_x, sp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_sp.png", threshold=0.85, region=(640, 0, 1280, 145))
         if sp_x is None or sp_y is None:
             # NHÁNH A: KHÔNG tìm thấy f_sp.png
-            self.after(0, self.log_info, "⚠️ [SKILL - BUFF SP] KHÔNG thấy 'card_f/skill/f_sp.png' (85%) ➔ Quét/Tap 2 lần 'login_auto.png' hoãn 5s...")
+            self.after(0, self.log_info, "⚠️ [SKILL - BUFF SP] KHÔNG thấy 'card_f/skill/f_sp.png' (85%) ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
             self._tap_login_auto_twice(dnconsole_path, tab_index)
             if self._sleep_with_stop_check(5.0): return
         else:
@@ -1269,7 +1273,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             time.sleep(0.2)
 
             if not self.var_buff.get() or self.stop_requested: return
-            self.after(0, self.log_info, "🎯 [SKILL - BUFF SP] Quét/Tap 2 lần 'login_auto.png' ➔ Hoãn 5s...")
+            self.after(0, self.log_info, "🎯 [SKILL - BUFF SP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
             self._tap_login_auto_twice(dnconsole_path, tab_index)
             if self._sleep_with_stop_check(5.0): return
 
@@ -2680,7 +2684,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {auto_x} {auto_y}"])
                     time.sleep(1.0)
                 else:
-                    self.after(0, self.log_info, "ℹ️ Không tìm thấy ảnh 'card_top/login/login_auto.png' trên màn hình game.")
+                    self.after(0, self.log_info, "ℹ️ Chưa thấy ảnh 'login_auto.png' ➔ Tap tọa độ Auto chuẩn (190, 140)...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 190 140"])
+                    time.sleep(1.0)
 
                 # 📌 Bước 8: Hoàn tất quá trình mở game & tự động thu nhỏ cửa sổ xuống Taskbar
                 self._minimize_ld_window(tab_index, tab_name)
@@ -2798,6 +2804,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             pause_attr = f"var_pause_{prefix}"
             if hasattr(self, pause_attr):
                 getattr(self, pause_attr).set(False)
+
+        # Nhả ô tích Skill (Tab Chiến Đấu) về OFF khi bấm nút Dừng
+        if hasattr(self, 'var_buff'):
+            self.var_buff.set(False)
 
         self._update_card_E_visibility()
         self.save_config()
@@ -2985,8 +2995,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         time.sleep(0.4)
 
         if self._should_stop_card_C(): return
-        self.after(0, self.log_info, "👁️ Quét kiểm tra 'card_c/c_kyluc.png' (95%, ROI 305,165,705,605)...")
-        kl_x, kl_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_c/c_kyluc.png", threshold=0.95, region=(305, 165, 705, 605))
+        self.after(0, self.log_info, "👁️ Quét kiểm tra 'card_c/c_kyluc.png' (85%, ROI 305,165,705,605)...")
+        kl_x, kl_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_c/c_kyluc.png", threshold=0.85, region=(305, 165, 705, 605))
         if kl_x is None:
             self.after(0, self.log_info, f"🎯 Giao diện ĐANG BẬT Ký Lục ➔ Tap ({kl_tap_x}, {kl_tap_y}) để TẮT Ký Lục ➔ Hoãn 0.4s...")
             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {kl_tap_x} {kl_tap_y}"])
@@ -4348,15 +4358,22 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         self.after(0, self.log_info, "👁️ [Boss - Thao Tác Trước Di Chuyển] 2. Quét nút Boss TG 'card_a/a_skboss.png' (ROI 155,95,305,625)...")
         skb_x, skb_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_a/a_skboss.png", threshold=0.85, region=(155, 95, 305, 625))
         if skb_x is not None and skb_y is not None:
-            self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_a/a_skboss.png' tại ({skb_x}, {skb_y})! Tap click chọn ➔ Hoãn 0.4s...")
+            self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_a/a_skboss.png' tại ({skb_x}, {skb_y})! Tap click chọn ➔ Hoãn 0.5s...")
             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {skb_x} {skb_y}"])
-            time.sleep(0.4)
+            time.sleep(0.5)
         else:
             self.after(0, self.log_info, "ℹ️ Không tìm thấy 'card_a/a_skboss.png' ➔ Bỏ qua.")
 
         if self._should_stop_card_A(): return False
         self.after(0, self.log_info, "👁️ [Boss - Thao Tác Trước Di Chuyển] 3. Quét nút Dịch Chuyển 'card_a/a_dichuyen.png' (60%, ROI 895,435,1065,535)...")
-        dc_x, dc_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_a/a_dichuyen.png", threshold=0.60, region=(895, 435, 1065, 535))
+        dc_x, dc_y = None, None
+        for _ in range(4):
+            if self._should_stop_card_A(): return False
+            dc_x, dc_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_a/a_dichuyen.png", threshold=0.60, region=(895, 435, 1065, 535))
+            if dc_x is not None and dc_y is not None:
+                break
+            time.sleep(0.4)
+
         if dc_x is not None and dc_y is not None:
             self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_a/a_dichuyen.png' tại ({dc_x}, {dc_y})! Tap click ➔ Hoãn 3.0s ➔ Chuyển thẳng qua PHẦN 4: ĐÁNH BOSS...")
             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {dc_x} {dc_y}"])
@@ -5185,10 +5202,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 if self._should_stop_card_D(): return
                 if found_d35_this_round or has_seen_d35:
                     if not auto_tapped_d35:
-                        self.after(0, self.log_info, "🔴 Lần đầu tiên thấy d_35.png ➔ Tap 1 LẦN duy nhất nút Auto 'login_auto.png' (85%, ROI 0,100,240,190) ➔ Hoãn 0.3s...")
-                        auto_x, auto_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_auto.png", threshold=0.85, region=(0, 100, 240, 190))
-                        if auto_x is not None and auto_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {auto_x} {auto_y}"])
+                        self.after(0, self.log_info, "🔴 Lần đầu tiên thấy d_35.png ➔ Tap 1 LẦN duy nhất nút Auto (190, 140) ➔ Hoãn 0.3s...")
+                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 190 140"])
                         time.sleep(0.3)
                         auto_tapped_d35 = True
                     else:
@@ -5284,10 +5299,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 if self._should_stop_card_D(): return
                 if found_d35_this_round or has_seen_d35_click:
                     if not auto_tapped_d35_click:
-                        self.after(0, self.log_info, "🔴 Lần đầu tiên thấy d_35.png ➔ Tap 1 LẦN duy nhất nút Auto 'login_auto.png' (85%, ROI 0,100,240,190) ➔ Hoãn 0.3s...")
-                        auto_x, auto_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_auto.png", threshold=0.85, region=(0, 100, 240, 190))
-                        if auto_x is not None and auto_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {auto_x} {auto_y}"])
+                        self.after(0, self.log_info, "🔴 Lần đầu tiên thấy d_35.png ➔ Tap 1 LẦN duy nhất nút Auto (190, 140) ➔ Hoãn 0.3s...")
+                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 190 140"])
                         time.sleep(0.3)
                         auto_tapped_d35_click = True
                     else:
@@ -5560,11 +5573,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             _tap_f_tieptheo_until_lost(tap_interval=0.5, delay_after=0.5)
             if should_stop(): return
 
-            # 3.5: Tap nút Auto login_auto.png (ROI: 0, 100, 240, 190, 85%) ➔ Hoãn 0.3s
-            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 3.5] Quét & Tap nút Auto 'login_auto.png' (ROI 0,100,240,190) ➔ Hoãn 0.3s...")
-            auto_x, auto_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_auto.png", threshold=0.85, region=(0, 100, 240, 190))
-            if auto_x is not None and auto_y is not None:
-                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {auto_x} {auto_y}"])
+            # 3.5: Tap nút Auto (190, 140) ➔ Hoãn 0.3s
+            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 3.5] Tap nút Auto (190, 140) ➔ Hoãn 0.3s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 190 140"])
             time.sleep(0.3)
             if should_stop(): return
 
@@ -5610,9 +5621,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # === GIAI ĐOẠN 5 ===
             if should_stop(): return
-            self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 5.1: Vuốt UP_RIGHT trong 1.0s...")
-            _swipe_dpad_direction("UP_RIGHT", 1000)
-            time.sleep(0.5)
+            self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 5.1: Vuốt UP_RIGHT trong 0.5s...")
+            _swipe_dpad_direction("UP_RIGHT", 500)
+            time.sleep(0.2)
 
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 5.2: Vuốt UP_LEFT tìm f_tieptheo.png...")
             _swipe_dpad_until_tieptheo("UP_LEFT", timeout_sec=8.0)
@@ -5634,9 +5645,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # === GIAI ĐOẠN 6 ===
             if should_stop(): return
-            self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 6.1: Vuốt UP_LEFT trong 1.0s...")
-            _swipe_dpad_direction("UP_LEFT", 1000)
-            time.sleep(0.5)
+            self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 6.1: Vuốt UP_LEFT trong 0.5s...")
+            _swipe_dpad_direction("UP_LEFT", 500)
+            time.sleep(0.2)
 
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 6.2: Vuốt UP_RIGHT tìm f_tieptheo.png...")
             _swipe_dpad_until_tieptheo("UP_RIGHT", timeout_sec=8.0)
@@ -5660,7 +5671,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             if should_stop(): return
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 7.1: Vuốt UP_RIGHT trong 2.0s...")
             _swipe_dpad_direction("UP_RIGHT", 2000)
-            time.sleep(0.5)
+            time.sleep(0.2)
 
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 7.2: Vuốt DOWN_RIGHT trong 1.0s...")
             _swipe_dpad_direction("DOWN_RIGHT", 1000)
@@ -5726,7 +5737,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         clean_name = os.path.basename(template_filename)
         possible_paths = []
 
-        for base in [get_bundle_dir(), get_app_dir()]:
+        for base in [get_app_dir(), get_bundle_dir()]:
             assets_dir = os.path.join(base, "assets")
             possible_paths.append(os.path.join(assets_dir, template_filename))
             possible_paths.append(os.path.join(base, template_filename))
@@ -5904,7 +5915,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                             is_strict_color = check_color or ("dichuyen" in template_filename.lower())
                             if is_strict_color:
                                 try:
-                                    crop = screen[max_loc[1]:max_loc[1]+h, max_loc[0]:max_loc[0]+w]
+                                    crop_x = offset_x + max_loc[0]
+                                    crop_y = offset_y + max_loc[1]
+                                    crop = screen[crop_y:crop_y+h, crop_x:crop_x+w]
                                     if crop.shape[0] == h and crop.shape[1] == w:
                                         if len(template.shape) == 3 and template.shape[2] == 4:
                                             alpha = template[:, :, 3]
@@ -5915,19 +5928,21 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                                             if np.any(mask_valid):
                                                 tmpl_v_mean = float(np.mean(tmpl_hsv[:, :, 2][mask_valid]))
                                                 crop_v_mean = float(np.mean(crop_hsv[:, :, 2][mask_valid]))
+                                                crop_s_mean = float(np.mean(crop_hsv[:, :, 1][mask_valid]))
                                             else:
                                                 tmpl_v_mean = float(np.mean(tmpl_hsv[:, :, 2]))
                                                 crop_v_mean = float(np.mean(crop_hsv[:, :, 2]))
+                                                crop_s_mean = float(np.mean(crop_hsv[:, :, 1]))
                                         else:
                                             tmpl_hsv = cv2.cvtColor(template, cv2.COLOR_BGR2HSV)
                                             crop_hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
                                             tmpl_v_mean = float(np.mean(tmpl_hsv[:, :, 2]))
                                             crop_v_mean = float(np.mean(crop_hsv[:, :, 2]))
+                                            crop_s_mean = float(np.mean(crop_hsv[:, :, 1]))
 
-                                        # Chỉ bỏ qua nếu ảnh thực tế trên màn hình bị TỐI/MỜ hơn hẳn mẫu chuẩn (nút bị vô hiệu hóa)
-                                        # Cho phép nút phát sáng/sáng hơn mẫu chuẩn (crop_v_mean >= tmpl_v_mean)
-                                        if (tmpl_v_mean - crop_v_mean) > 20:
-                                            self.after(0, self.log_info, f"👁️ Mắt thần quét '{template_filename}' ({match_pct}%) nhưng bị TỐI/MỜ MÀU (Độ sáng: {round(crop_v_mean, 1)} / Mẫu chuẩn: {round(tmpl_v_mean, 1)}) ➔ Bỏ qua không nhận.")
+                                        # Chỉ bỏ qua nếu nút bị xám màu (S < 45) hoặc quá tối (V < 110 hoặc chênh lệch độ sáng > 70)
+                                        if crop_s_mean < 45 or crop_v_mean < 110 or (tmpl_v_mean - crop_v_mean) > 70:
+                                            self.after(0, self.log_info, f"👁️ Mắt thần quét '{template_filename}' ({match_pct}%) nhưng bị TỐI/MỜ MÀU (Độ sáng V: {round(crop_v_mean, 1)}, Màu S: {round(crop_s_mean, 1)} / Mẫu chuẩn: {round(tmpl_v_mean, 1)}) ➔ Bỏ qua không nhận.")
                                             try: os.remove(temp_local)
                                             except: pass
                                             return None, None

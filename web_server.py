@@ -1259,6 +1259,20 @@ HTML_PAGE = """<!DOCTYPE html>
         }
 
         async function sendAction(action, payload = {}, showToastMsg = true) {
+            if (action === 'stop') {
+                // Nhả tức thì ô Skill và các công tắc trên giao diện Web ngay khi chạm Stop
+                const chkBuff = document.getElementById('chk_buff');
+                if (chkBuff) chkBuff.checked = false;
+                delete userLocks['chk_buff'];
+                ['A', 'B', 'C', 'D'].forEach(k => {
+                    const sw = document.getElementById('switch_' + k);
+                    if (sw) sw.checked = false;
+                    delete userLocks['switch_' + k];
+                    const p = document.getElementById('chk_pause_' + k);
+                    if (p) p.checked = false;
+                    delete userLocks['chk_pause_' + k];
+                });
+            }
             try {
                 const res = await fetch('/api/action', {
                     method: 'POST',
@@ -1834,6 +1848,11 @@ def start_cloudflare_tunnel(app):
                         ngrok_domain = cf_domain
         except Exception:
             pass
+
+        if not ngrok_token:
+            ngrok_token = "3IR0jDxxFPLsNAP9UbnCxFpPXVJ_Mgs51iujUEfsCqJg4JTH"
+        if not ngrok_domain:
+            ngrok_domain = "https://crusader-visor-disparity.ngrok-free.dev"
 
         # 0. ƯU TIÊN NGROK STATIC DOMAIN NẾU CÓ NGROK TOKEN & DOMAIN
         if ngrok_token and (ngrok_domain or cf_domain):

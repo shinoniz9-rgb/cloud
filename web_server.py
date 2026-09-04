@@ -379,18 +379,22 @@ HTML_PAGE = """<!DOCTYPE html>
         }
 
         .chk-label {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            gap: 5px;
             background: var(--surface-card);
             border: 1px solid var(--border);
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 0.82rem;
-            font-weight: 500;
+            padding: 5px 8px;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 600;
             cursor: pointer;
             user-select: none;
             transition: 0.2s;
+            white-space: nowrap;
+            box-sizing: border-box;
+            flex-shrink: 0;
         }
 
         .chk-label:has(input:checked) {
@@ -401,8 +405,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
         .chk-label input {
             accent-color: var(--accent);
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
+            margin: 0;
+            flex-shrink: 0;
         }
 
         /* Screen Preview */
@@ -687,7 +693,7 @@ HTML_PAGE = """<!DOCTYPE html>
                     <img id="screenImg" class="preview-img" src="/api/screenshot" alt="Màn hình giả lập">
                 </div>
                 <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted);">
+                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:inline-flex; align-items:center; white-space:nowrap;">
                         <input type="checkbox" id="autoStream" onchange="toggleAutoStream(this.checked)" checked style="accent-color:var(--accent); margin-right:4px;"> Tự làm mới (2s)
                     </label>
                     <span style="font-size:0.75rem; color:#64748b;" id="lblStreamStatus">Đang tự động truyền ảnh</span>
@@ -728,11 +734,11 @@ HTML_PAGE = """<!DOCTYPE html>
                     </label>
                 </div>
                 <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
-                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <label class="chk-label" style="font-size:0.78rem;">
                         <input type="checkbox" id="chk_A1" onchange="onCheckboxChanged('A1', this.checked)"> 👑 Boss
                     </label>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                        <span style="font-size:0.75rem; color:#9CA3AF; white-space:nowrap;">Vị trí:</span>
                         <select id="combo_A_char" style="width:125px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('A_char', this.value)"></select>
                     </div>
                 </div>
@@ -749,15 +755,15 @@ HTML_PAGE = """<!DOCTYPE html>
                 </div>
 
                 <!-- Hàng 1: Split Đơn và Đội -->
-                <div style="display:flex; align-items:stretch; gap:12px; position:relative; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+                <div style="display:flex; align-items:stretch; gap:8px; position:relative; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
                     <!-- Đơn (Cá nhân) -->
-                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
-                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
+                        <label class="chk-label" style="font-size:0.75rem; padding:5px 6px; width:100%; justify-content:center;">
                             <input type="checkbox" id="chk_B_don" onchange="onCheckboxChanged('B_don', this.checked)"> 👤 Đơn (Cá Nhân)
                         </label>
                         <div style="display:flex; align-items:center; gap:4px;">
-                            <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
-                            <select id="combo_B_don_char" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('B_don_char', this.value)"></select>
+                            <span style="font-size:0.72rem; color:#9CA3AF; white-space:nowrap;">Vị trí:</span>
+                            <select id="combo_B_don_char" style="width:100%; font-size:0.78rem; padding:4px 4px;" onchange="onComboChanged('B_don_char', this.value)"></select>
                         </div>
                     </div>
 
@@ -765,24 +771,24 @@ HTML_PAGE = """<!DOCTYPE html>
                     <div style="width:1px; background:rgba(255,255,255,0.12); border-radius:1px;"></div>
 
                     <!-- Đội (Tổ đội) -->
-                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
-                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
+                        <label class="chk-label" style="font-size:0.75rem; padding:5px 6px; width:100%; justify-content:center;">
                             <input type="checkbox" id="chk_B_doi" onchange="onCheckboxChanged('B_doi', this.checked)"> 👥 Đội (Tổ Đội)
                         </label>
                         <div style="display:flex; align-items:center; gap:4px;">
-                            <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
-                            <select id="combo_B_team_char" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('B_team_char', this.value)"></select>
+                            <span style="font-size:0.72rem; color:#9CA3AF; white-space:nowrap;">Vị trí:</span>
+                            <select id="combo_B_team_char" style="width:100%; font-size:0.78rem; padding:4px 4px;" onchange="onComboChanged('B_team_char', this.value)"></select>
                         </div>
                     </div>
                 </div>
 
                 <!-- Hàng 2: Các mốc Phụ Bản (PB 20 - PB 140) -->
-                <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
-                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B1" onchange="onCheckboxChanged('B1', this.checked)"> PB 20</label>
-                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B2" onchange="onCheckboxChanged('B2', this.checked)"> PB 50</label>
-                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B3" onchange="onCheckboxChanged('B3', this.checked)"> PB 80</label>
-                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B4" onchange="onCheckboxChanged('B4', this.checked)"> PB 110</label>
-                    <label class="chk-label" style="font-size:0.8rem;"><input type="checkbox" id="chk_B5" onchange="onCheckboxChanged('B5', this.checked)"> PB 140</label>
+                <div style="display:flex; flex-wrap:nowrap; gap:5px; justify-content:space-between; background:rgba(0,0,0,0.2); padding:6px 8px; border-radius:8px; border:1px solid var(--border); overflow-x:auto;">
+                    <label class="chk-label" style="font-size:0.74rem; padding:5px 4px; flex:1; justify-content:center;"><input type="checkbox" id="chk_B1" onchange="onCheckboxChanged('B1', this.checked)"> PB 20</label>
+                    <label class="chk-label" style="font-size:0.74rem; padding:5px 4px; flex:1; justify-content:center;"><input type="checkbox" id="chk_B2" onchange="onCheckboxChanged('B2', this.checked)"> PB 50</label>
+                    <label class="chk-label" style="font-size:0.74rem; padding:5px 4px; flex:1; justify-content:center;"><input type="checkbox" id="chk_B3" onchange="onCheckboxChanged('B3', this.checked)"> PB 80</label>
+                    <label class="chk-label" style="font-size:0.74rem; padding:5px 4px; flex:1; justify-content:center;"><input type="checkbox" id="chk_B4" onchange="onCheckboxChanged('B4', this.checked)"> PB 110</label>
+                    <label class="chk-label" style="font-size:0.74rem; padding:5px 4px; flex:1; justify-content:center;"><input type="checkbox" id="chk_B5" onchange="onCheckboxChanged('B5', this.checked)"> PB 140</label>
                 </div>
             </div>
 
@@ -795,12 +801,12 @@ HTML_PAGE = """<!DOCTYPE html>
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div style="display:flex; align-items:center; justify-content:space-around; background:rgba(255,255,255,0.02); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
-                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C1" onchange="onCheckboxChanged('C1', this.checked)"> Phúc Thần</label>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-size:0.76rem; padding:6px 8px; flex:1; justify-content:center;"><input type="checkbox" id="chk_C1" onchange="onCheckboxChanged('C1', this.checked)"> Phúc Thần</label>
                     <div style="width:1px; height:18px; background:rgba(255,255,255,0.12);"></div>
-                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C2" onchange="onCheckboxChanged('C2', this.checked)"> Ký Lục</label>
+                    <label class="chk-label" style="font-size:0.76rem; padding:6px 8px; flex:1; justify-content:center;"><input type="checkbox" id="chk_C2" onchange="onCheckboxChanged('C2', this.checked)"> Ký Lục</label>
                     <div style="width:1px; height:18px; background:rgba(255,255,255,0.12);"></div>
-                    <label class="chk-label" style="font-weight:600; font-size:0.85rem;"><input type="checkbox" id="chk_C3" onchange="onCheckboxChanged('C3', this.checked)"> Rút Gọn</label>
+                    <label class="chk-label" style="font-size:0.76rem; padding:6px 8px; flex:1; justify-content:center;"><input type="checkbox" id="chk_C3" onchange="onCheckboxChanged('C3', this.checked)"> Rút Gọn</label>
                 </div>
             </div>
 
@@ -808,8 +814,8 @@ HTML_PAGE = """<!DOCTYPE html>
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">🏛️ 40 NPC / 2K - NHỊ KIỀU (Card D)</span>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <label class="chk-label" style="font-size:0.8rem; font-weight:600; color:var(--warning);">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label class="chk-label" style="font-size:0.74rem; color:var(--warning); padding:4px 8px;">
                             <input type="checkbox" id="chk_pause_D" onchange="onCheckboxChanged('pause_D', this.checked)"> ⏸️ Tạm Dừng
                         </label>
                         <label class="switch">
@@ -821,11 +827,11 @@ HTML_PAGE = """<!DOCTYPE html>
 
                 <!-- Hàng 1: Tổ Đội + Dropdown Vị Trí -->
                 <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <label class="chk-label" style="font-size:0.78rem;">
                         <input type="checkbox" id="chk_D2" onchange="onCheckboxChanged('D2', this.checked)"> 👥 Tổ Đội
                     </label>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:0.75rem; color:#9CA3AF;">Vị trí:</span>
+                        <span style="font-size:0.75rem; color:#9CA3AF; white-space:nowrap;">Vị trí:</span>
                         <select id="combo_D_team_char" style="width:125px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_team_char', this.value)"></select>
                     </div>
                 </div>
@@ -833,30 +839,41 @@ HTML_PAGE = """<!DOCTYPE html>
                 <!-- Hàng 2 & 3: Bố cục 2 Cột song song đồng bộ 100% -->
                 <div style="display:flex; align-items:stretch; gap:10px;">
                     <!-- Cột Trái: 40 NPC -->
-                    <div style="flex:1; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
-                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <div style="flex:1; min-width:0; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
+                        <label class="chk-label" style="font-size:0.76rem; width:100%; justify-content:center;">
                             <input type="checkbox" id="chk_D3" onchange="onCheckboxChanged('D3', this.checked)"> ⚔️ 40 NPC
                         </label>
                         <div style="margin-top:6px;">
-                            <label style="display:block; font-size:0.75rem; color:#9CA3AF; margin-bottom:4px;">Chế độ:</label>
-                            <select id="combo_D_chien_dau" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_chien_dau', this.value)">
+                            <label style="display:block; font-size:0.72rem; color:#9CA3AF; margin-bottom:4px; white-space:nowrap;">Chế độ:</label>
+                            <select id="combo_D_chien_dau" style="width:100%; font-size:0.78rem; padding:4px 4px;" onchange="onComboChanged('D_chien_dau', this.value)">
                                 <option value="Auto">Auto</option><option value="Click">Click</option>
                             </select>
                         </div>
                     </div>
 
                     <!-- Cột Phải: Nhị Kiều -->
-                    <div style="flex:1; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
-                        <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <div style="flex:1; min-width:0; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; justify-content:space-between;">
+                        <label class="chk-label" style="font-size:0.76rem; width:100%; justify-content:center;">
                             <input type="checkbox" id="chk_D4" onchange="onCheckboxChanged('D4', this.checked)"> 🗼 Nhị Kiều
                         </label>
                         <div style="margin-top:6px;">
-                            <label style="display:block; font-size:0.75rem; color:#9CA3AF; margin-bottom:4px;">Mốc tầng:</label>
-                            <select id="combo_D_tang" style="width:100%; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('D_tang', this.value)">
+                            <label style="display:block; font-size:0.72rem; color:#9CA3AF; margin-bottom:4px; white-space:nowrap;">Mốc tầng:</label>
+                            <select id="combo_D_tang" style="width:100%; font-size:0.78rem; padding:4px 4px;" onchange="onComboChanged('D_tang', this.value)">
                                 <option value="Trệt - 10">Trệt - 10</option><option value="11 - 14">11 - 14</option>
                             </select>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Card Tự Động Nhận Thư 22:01 -->
+            <div class="card" style="border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.03); margin-top: 10px;">
+                <div class="card-header" style="margin-bottom:0;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="card-title" style="color:#38BDF8;">📬 Tự Động Nhận Thư</span>
+                        <span style="font-size:0.7rem; background:rgba(34,197,94,0.15); color:#4ADE80; padding:2px 6px; border-radius:4px; font-weight:600;">22:01 Hàng Ngày</span>
+                    </div>
+                    <button class="btn-action" style="padding:5px 12px; font-size:0.75rem; background:#0284C7; color:#fff; border-radius:6px; flex:none; cursor:pointer;" onclick="sendAction('nhan_thu')">⚡ Nhận Ngay</button>
                 </div>
             </div>
         </div>
@@ -868,11 +885,11 @@ HTML_PAGE = """<!DOCTYPE html>
                     <span class="card-title">👥 Quản Lý Tổ Đội (Card E)</span>
                 </div>
                 <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
+                    <label class="chk-label" style="font-size:0.78rem;">
                         <input type="checkbox" id="chk_E_quan_su" onchange="onCheckboxChanged('E_quan_su', this.checked)"> 🧙‍♂️ Quân Sư
                     </label>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:0.75rem; color:#9CA3AF;">Nhân vật:</span>
+                        <span style="font-size:0.75rem; color:#9CA3AF; white-space:nowrap;">Nhân vật:</span>
                         <select id="combo_E_quan_su" style="width:130px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('E_quan_su', this.value)"></select>
                     </div>
                 </div>
@@ -900,13 +917,13 @@ HTML_PAGE = """<!DOCTYPE html>
                 <div class="card-header">
                     <span class="card-title">⚔️ Cấu Hình Chiến Đấu (Card F)</span>
                 </div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
-                    <label class="chk-label" style="font-weight:600; font-size:0.88rem;">
-                        <input type="checkbox" id="chk_buff" onchange="onCheckboxChanged('buff', this.checked)"> ⚡ Skill <span style="font-size: 0.72rem; color: #9CA3AF; margin-left: 2px;">( Tắt Auto )</span>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+                    <label class="chk-label" style="font-size:0.76rem; padding:5px 8px;">
+                        <input type="checkbox" id="chk_buff" onchange="onCheckboxChanged('buff', this.checked)"> ⚡ Skill <span style="font-size:0.68rem; color:#9CA3AF; margin-left:2px; white-space:nowrap;">(Tắt Auto)</span>
                     </label>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:0.75rem; color:#9CA3AF;">Loại Buff:</span>
-                        <select id="combo_buff" style="width:130px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('buff', this.value)">
+                        <span style="font-size:0.75rem; color:#9CA3AF; white-space:nowrap;">Loại Buff:</span>
+                        <select id="combo_buff" style="width:125px; font-size:0.8rem; padding:4px 6px;" onchange="onComboChanged('buff', this.value)">
                             <option value="Buff HP">Buff HP</option>
                             <option value="Buff SP">Buff SP</option>
                             <option value="Buff 3HP / 1SP">Buff 3HP / 1SP</option>
@@ -1540,6 +1557,16 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
             elif action == "exit_game":
                 app.after(0, app.xu_ly_exit_game)
                 msg = "🚪 Đang đóng game về màn hình chính LDPlayer..."
+
+            elif action == "nhan_thu":
+                tab_name, tab_index = app._get_selected_ld_info() if hasattr(app, '_get_selected_ld_info') else (None, None)
+                if tab_index is None:
+                    tab_index = "0"
+                dnconsole_path = os.path.join(app.ld_path, "ldconsole.exe")
+                if not os.path.exists(dnconsole_path):
+                    dnconsole_path = os.path.join(app.ld_path, "dnconsole.exe")
+                threading.Thread(target=app._execute_nhan_thu, args=(dnconsole_path, str(tab_index)), daemon=True).start()
+                msg = "📬 Đang thực thi Nhận Thư..."
 
             elif action == "refresh_tabs":
                 app.after(0, app.refresh_ld_tabs_async)

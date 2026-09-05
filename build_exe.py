@@ -39,7 +39,7 @@ print(f"[CMD] {' '.join(cmd)}\n")
 res = subprocess.run(cmd)
 
 dist_exe = os.path.join(base_dir, "dist", "TS_Origin_Control.exe")
-if os.path.exists(dist_exe):
+if res.returncode == 0 and os.path.exists(dist_exe):
     print("\n📥 Đang sao chép file cấu hình config.json (kèm 2 dòng ngrok) và tài nguyên...")
     
     # Sao chép config.json vào thư mục dist

@@ -460,12 +460,14 @@ class ToolLDPlayerGUI(ctk.CTk):
         if not hasattr(self, 'card_E'):
             return
 
-        # Kiểm tra điều kiện mở Card E (Tổ Đội) (Áp dụng cho cả Phụ Bản Đội & 40NPC/2K)
+        # Kiểm tra điều kiện mở Card E (Tổ Đội) (Áp dụng cho cả Phụ Bản Đội, 40NPC/2K & Nhị Kiều)
         is_doi_checked = (hasattr(self, 'var_B_doi') and self.var_B_doi.get()) or \
-                         (hasattr(self, 'var_D2') and self.var_D2.get())
+                         (hasattr(self, 'var_D2') and self.var_D2.get()) or \
+                         (hasattr(self, 'var_D4') and self.var_D4.get())
 
-        # Riêng mục "Quân Sư": Chỉ áp dụng cho Card 40NPC / 2K (var_D2)
-        is_40npc_checked = (hasattr(self, 'var_D2') and self.var_D2.get())
+        # Riêng mục "Quân Sư": Áp dụng cho Card 40NPC / 2K (var_D2) và Nhị Kiều (var_D4)
+        is_40npc_checked = (hasattr(self, 'var_D2') and self.var_D2.get()) or \
+                           (hasattr(self, 'var_D4') and self.var_D4.get())
 
         if is_doi_checked:
             # SÁNG LÊN: Bật trạng thái tùy chỉnh và khôi phục màu tiêu đề sáng
@@ -648,10 +650,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         if "D_chien_dau" in cfg and hasattr(self, 'combo_D_chien_dau'):
             val = cfg["D_chien_dau"]
             self.combo_D_chien_dau.set(val if val in ["Auto", "Click"] else "Auto")
-        tang_D_opts = ["Trệt - 10", "11 - 14"]
-        if "D_tang" in cfg and hasattr(self, 'combo_D_tang'):
-            val = cfg["D_tang"]
-            self.combo_D_tang.set(val if val in tang_D_opts else "Trệt - 10")
+        tang_D_opts = ["Auto", "Trệt - 10", "11 - 14"]
+        if hasattr(self, 'combo_D_tang'):
+            val = cfg.get("D_tang", "Auto")
+            self.combo_D_tang.set(val if val in tang_D_opts else "Auto")
         if hasattr(self, 'var_pause_D'):
             self.var_pause_D.set(False)
 
@@ -1850,7 +1852,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         self.combo_D_chien_dau.set("Auto")
         self.combo_D_chien_dau.grid(row=1, column=0, sticky="ew", padx=(4, 0))
 
-        tang_options = ["Trệt - 10", "11 - 14"]
+        tang_options = ["Auto", "Trệt - 10", "11 - 14"]
         self.combo_D_tang = ctk.CTkOptionMenu(
             act_frame_D,
             values=tang_options,
@@ -1866,7 +1868,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             button_hover_color="#6B7280",
             command=lambda choice: self._on_checkbox_toggled()
         )
-        self.combo_D_tang.set("Trệt - 10")
+        self.combo_D_tang.set("Auto")
         self.combo_D_tang.grid(row=1, column=2, sticky="ew", padx=(0, 4))
 
         # =========================================================================
@@ -2106,6 +2108,21 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             )
 
         
+    def _append_ui_log(self, log_line: str):
+        """Chèn log vào widget txt_log và tự động cắt bớt log cũ khi vượt quá 500 dòng để chống tràn bộ nhớ và lag giật"""
+        if hasattr(self, 'txt_log'):
+            try:
+                self.txt_log.configure(state="normal")
+                self.txt_log.insert("end", f"{log_line}\n")
+                line_idx = self.txt_log.index("end-1c")
+                total_lines = int(line_idx.split('.')[0])
+                if total_lines > 500:
+                    self.txt_log.delete("1.0", "51.0")
+                self.txt_log.see("end")
+                self.txt_log.configure(state="disabled")
+            except Exception:
+                pass
+
     # --- HÀM CẬP NHẬT TRẠNG THÁI & XUẤT LOG ---
     def log_info(self, message: str):
         """Cập nhật thông tin lên thanh trạng thái & ô ghi Log trực tiếp trên GUI & Web UI"""
@@ -2119,11 +2136,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         if hasattr(self, 'lbl_status'):
             self.lbl_status.configure(text=f"Thông báo: {message}")
-        if hasattr(self, 'txt_log'):
-            self.txt_log.configure(state="normal")
-            self.txt_log.insert("end", f"{log_line}\n")
-            self.txt_log.see("end")
-            self.txt_log.configure(state="disabled")
+        self._append_ui_log(log_line)
 
     def log_warning(self, message: str):
         """Cập nhật cảnh báo lên thanh trạng thái & ô ghi Log trực tiếp trên GUI & Web UI"""
@@ -2137,11 +2150,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         if hasattr(self, 'lbl_status'):
             self.lbl_status.configure(text=f"Cảnh báo: {message}")
-        if hasattr(self, 'txt_log'):
-            self.txt_log.configure(state="normal")
-            self.txt_log.insert("end", f"{log_line}\n")
-            self.txt_log.see("end")
-            self.txt_log.configure(state="disabled")
+        self._append_ui_log(log_line)
 
     def log_error(self, message: str):
         """Cập nhật lỗi lên thanh trạng thái & ô ghi Log trực tiếp trên GUI & Web UI"""
@@ -2155,11 +2164,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         if hasattr(self, 'lbl_status'):
             self.lbl_status.configure(text=f"Lỗi: {message}")
-        if hasattr(self, 'txt_log'):
-            self.txt_log.configure(state="normal")
-            self.txt_log.insert("end", f"{log_line}\n")
-            self.txt_log.see("end")
-            self.txt_log.configure(state="disabled")
+        self._append_ui_log(log_line)
 
     def _exec_cmd(self, cmd_list, text=False):
         """Thực thi lệnh ADB/LDConsole an toàn và chính xác 100% trên mọi Tab LDPlayer"""
@@ -3927,7 +3932,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         def is_no_active_switch_on() -> bool:
             e_active = hasattr(self, 'var_switch_B') and hasattr(self, 'var_B_doi') and self.var_B_doi.get() and self.var_switch_B.get()
-            d_active = hasattr(self, 'var_switch_D') and hasattr(self, 'var_D2') and self.var_D2.get() and self.var_switch_D.get()
+            d_active = hasattr(self, 'var_switch_D') and self.var_switch_D.get() and ((hasattr(self, 'var_D2') and self.var_D2.get()) or (hasattr(self, 'var_D4') and self.var_D4.get()))
             return not (e_active or d_active)
 
         # Vòng lặp tạm dừng thông minh
@@ -3944,9 +3949,12 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
     def _run_card_E_action_1(self, dnconsole_path: str, tab_index: str, list_B: list):
         """
         THAO TÁC 1 CỦA CARD TỔ ĐỘI:
-        Kích hoạt khi ô 'Tổ Đội' ở Card 40NPC / 2K (var_D2) được tích.
+        Kích hoạt khi ô 'Tổ Đội' (var_D2) hoặc ô 'Nhị Kiều' (var_D4) ở Card D được kích hoạt.
         Bổ sung tính năng quản lý danh sách đã mời (already_invited) thông minh.
         """
+        if hasattr(self, 'var_D2') and not self.var_D2.get() and not (hasattr(self, 'var_D4') and self.var_D4.get()):
+            self.after(0, self.log_info, "ℹ️ [CARD TỔ ĐỘI - Thao Tác 1] Ô 'Tổ Đội' / 'Nhị Kiều' KHÔNG được tích ➔ Bỏ qua Card E.")
+            return
         if self._should_stop_card_E() or not list_B: return
 
         self.after(0, self.log_info, f"🚀 [CARD TỔ ĐỘI - Thao Tác 1] Khởi chạy quy trình mời {len(list_B)} nhân vật trong Danh Sách B: {', '.join(list_B)}...")
@@ -3985,7 +3993,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             # 3. Nhận Diện Người Trong Tổ Đội
             if self._should_stop_card_E(): return
             self.after(0, self.log_info, "👁️ [Thao Tác 1] Quét kiểm tra độ đầy đủ của các nhân vật trong Danh Sách B...")
-            all_present = True
+            present_members = []
             missing_list = []
 
             for char_name in list_B:
@@ -3994,16 +4002,17 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 if chk_x is None or chk_y is None:
                     chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
 
-                if chk_x is None or chk_y is None:
-                    all_present = False
-                    missing_list.append(char_name)
-                else:
+                if chk_x is not None and chk_y is not None:
+                    present_members.append(char_name)
                     if char_name in already_invited:
                         already_invited.remove(char_name)
+                else:
+                    missing_list.append(char_name)
 
-            # 4. Xử Lý Kết Quả Kiểm Tra
-            if all_present:
-                self.after(0, self.log_info, f"✅ [Thao Tác 1] Tổ đội đã ĐỦ 100% thành viên ({', '.join(list_B)})!")
+            # 4. Xử Lý Kết Quả Kiểm Tra (Đủ 4 thành viên là xác nhận hoàn thành)
+            target_count = min(4, len(list_B))
+            if len(present_members) >= target_count:
+                self.after(0, self.log_info, f"✅ [Thao Tác 1] Tổ đội đã ĐỦ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})!")
 
                 # Chỉ định Quân Sư: Nếu ô [ ] Quân Sư được tích chọn ➔ Tự động gán nhân vật bạn chọn làm Quân Sư của đội
                 if hasattr(self, 'var_E_quan_su') and self.var_E_quan_su.get():
@@ -4045,7 +4054,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             else:
                 uninvited_missing = list(missing_list)
-                self.after(0, self.log_info, f"⚠️ [Thao Tác 1] Đội chưa đủ người (Thiếu: {', '.join(missing_list)}) ➔ Mời ngay toàn bộ thành viên còn thiếu...")
+                self.after(0, self.log_info, f"⚠️ [Thao Tác 1] Đội chưa đủ {target_count} người (Hiện có: {len(present_members)}, Thiếu: {', '.join(missing_list)}) ➔ Mời ngay toàn bộ thành viên còn thiếu...")
 
                 # Mắt thần quét tìm ảnh / tap card_e/e_nguoi.png (85%, ROI 175,165,295,455) nghỉ 0.4s
                 if self._should_stop_card_E(): return
@@ -4135,6 +4144,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         THAO TÁC 2 CỦA CARD TỔ ĐỘI:
         Kích hoạt khi ô tích 'Tổ Đội' của Card Phụ Bản Đơn / Đội (var_B_doi) được tích.
         """
+        if hasattr(self, 'var_B_doi') and not self.var_B_doi.get():
+            self.after(0, self.log_info, "ℹ️ [CARD TỔ ĐỘI - Thao Tác 2] Ô 'Đội' (Phụ Bản Đội) KHÔNG được tích ➔ Bỏ qua Card E.")
+            return
         if self._should_stop_card_E() or not list_B: return
 
         self.after(0, self.log_info, f"🚀 [CARD TỔ ĐỘI - Thao Tác 2] Bắt đầu quy trình mời {len(list_B)} nhân vật trong Danh Sách B: {', '.join(list_B)}...")
@@ -4145,7 +4157,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             # --- BƯỚC 1: NHẬN DIỆN THÀNH VIÊN TRONG ĐỘI ---
             if self._should_stop_card_E(): return
             self.after(0, self.log_info, "👁️ [Thao Tác 2 - Bước 1] Quét kiểm tra các nhân vật trong Danh Sách B...")
-            all_present = True
+            present_members = []
             missing_list = []
 
             for char_name in list_B:
@@ -4154,17 +4166,18 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 if chk_x is None or chk_y is None:
                     chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(175, 165, 1105, 605))
 
-                if chk_x is None or chk_y is None:
-                    all_present = False
-                    missing_list.append(char_name)
-                else:
+                if chk_x is not None and chk_y is not None:
+                    present_members.append(char_name)
                     if char_name in already_invited:
                         already_invited.remove(char_name)
+                else:
+                    missing_list.append(char_name)
 
-            # --- BƯỚC 2: ĐÁNH GIÁ KẾT QUẢ KIỂM TRA ---
-            if all_present:
-                self.after(0, self.log_info, f"✅ [Thao Tác 2 - Bước 2: Trường hợp A] Đội hình đã ĐỦ 100% thành viên ({', '.join(list_B)})! Thoát vòng lặp & trả thao tác về Phụ Bản Đội.")
-                self.after(0, lambda: self._send_notification("🎉 Tổ Đội Hoàn Thành", f"Đội hình đã gom đủ 100% thành viên ({', '.join(list_B)})!"))
+            # --- BƯỚC 2: ĐÁNH GIÁ KẾT QUẢ KIỂM TRA (Đủ 4 thành viên là xác nhận hoàn thành) ---
+            target_count = min(4, len(list_B))
+            if len(present_members) >= target_count:
+                self.after(0, self.log_info, f"✅ [Thao Tác 2 - Bước 2: Trường hợp A] Đội hình đã ĐỦ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})! Thoát vòng lặp & trả thao tác về Phụ Bản Đội.")
+                self.after(0, lambda: self._send_notification("🎉 Tổ Đội Hoàn Thành", f"Đội hình đã gom đủ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})!"))
                 break
 
             # Lọc danh sách những thành viên thiếu chưa được gửi lời mời ở lượt trước
@@ -4175,7 +4188,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 uninvited_missing = list(missing_list)
 
             # 🔴 TRƯỜNG HỢP B: CÒN THIẾU THÀNH VIÊN
-            self.after(0, self.log_info, f"⚠️ [Thao Tác 2 - Bước 2: Trường hợp B] Đội chưa đủ người (Thiếu: {', '.join(missing_list)} | Cần mời tiếp: {', '.join(uninvited_missing)}) ➔ Quét tìm nút Mời 'card_e/e_moi.png'...")
+            self.after(0, self.log_info, f"⚠️ [Thao Tác 2 - Bước 2: Trường hợp B] Đội chưa đủ {target_count} người (Hiện có: {len(present_members)}, Thiếu: {', '.join(missing_list)} | Cần mời tiếp: {', '.join(uninvited_missing)}) ➔ Quét tìm nút Mời 'card_e/e_moi.png'...")
             
             # Quét Mắt thần tìm nút Mời card_e/e_moi.png (85%, ROI 175,165,1105,605)
             if self._should_stop_card_E(): return
@@ -4217,22 +4230,22 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             # 1. Quét tìm ngay trên màn hình hiện tại (trước khi vuốt)
             invited_any, char_done = scan_and_invite_mode2(still_missing)
 
-            # 2. Chiều Vuốt XUỐNG thông minh: input swipe 625 410 625 260 800 (giữ 0.8s) ➔ Hoãn 0.5s (Tối đa 10 lần)
+            # 2. Chiều Vuốt XUỐNG thông minh: input swipe 625 410 625 260 600 (giữ 0.6s) ➔ Hoãn 0.5s (Tối đa 10 lần)
             if not invited_any and still_missing:
                 for swipe_down_cnt in range(10):
                     if self._should_stop_card_E() or not still_missing: break
-                    self.after(0, self.log_info, f"📜 [Vuốt xuống {swipe_down_cnt+1}/10] Swipe 625 410 625 260 800 (giữ 0.8s) ➔ Hoãn 0.5s...")
-                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 410 625 260 800"])
+                    self.after(0, self.log_info, f"📜 [Vuốt xuống {swipe_down_cnt+1}/10] Swipe 625 410 625 260 600 (giữ 0.6s) ➔ Hoãn 0.5s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 410 625 260 600"])
                     time.sleep(0.5)
                     invited_any, char_done = scan_and_invite_mode2(still_missing)
                     if invited_any: break
 
-            # 3. Chiều Vuốt LÊN thông minh: input swipe 625 260 625 410 2200 (giữ 2.2s) ➔ Hoãn 0.5s (Tối đa 8 lần)
+            # 3. Chiều Vuốt LÊN thông minh: input swipe 625 260 625 410 1800 (giữ 1.8s) ➔ Hoãn 0.5s (Tối đa 8 lần)
             if not invited_any and still_missing:
                 for swipe_up_cnt in range(8):
                     if self._should_stop_card_E() or not still_missing: break
-                    self.after(0, self.log_info, f"📜 [Vuốt lên {swipe_up_cnt+1}/8] Swipe 625 260 625 410 2200 (giữ 2.2s) ➔ Hoãn 0.5s...")
-                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 260 625 410 2200"])
+                    self.after(0, self.log_info, f"📜 [Vuốt lên {swipe_up_cnt+1}/8] Swipe 625 260 625 410 1800 (giữ 1.8s) ➔ Hoãn 0.5s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 625 260 625 410 1800"])
                     time.sleep(0.5)
                     invited_any, char_done = scan_and_invite_mode2(still_missing)
                     if invited_any: break
@@ -4244,10 +4257,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 time.sleep(0.3)
                 continue
 
-            # Sau khi bấm Mời acc thành công: Tạm nghỉ 0.5s chờ đồng ý & quay lại Bước 2.1
+            # Sau khi bấm Mời acc thành công: Tạm nghỉ 1.0s chờ đồng ý & quay lại Bước 2.1
             if self._should_stop_card_E(): return
-            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 0.5s chờ thành viên nhận và vào phòng...")
-            time.sleep(0.5)
+            self.after(0, self.log_info, "⏳ [Thao Tác 2] Đã tap nút Mời ➔ Tạm nghỉ 1.0s chờ thành viên nhận và vào phòng...")
+            time.sleep(1.0)
 
     def _execute_card_E_for_mode(self, dnconsole_path: str, tab_name: str, tab_index: str, mode: int):
         """
@@ -4255,6 +4268,13 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         - mode=1: Thao tác 1 (Kích hoạt khi ô Tổ Đội 40NPC / 2K var_D2 được tích)
         - mode=2: Thao tác 2 (Kích hoạt khi ô Tổ Đội Phụ Bản Đội var_B_doi được tích)
         """
+        if mode == 1 and hasattr(self, 'var_D2') and not self.var_D2.get():
+            self.after(0, self.log_info, "ℹ️ [TỔ ĐỘI - Thao Tác 1] Ô 'Tổ Đội' (40NPC/2K) KHÔNG được tích ➔ Bỏ qua Card E.")
+            return
+        if mode == 2 and hasattr(self, 'var_B_doi') and not self.var_B_doi.get():
+            self.after(0, self.log_info, "ℹ️ [TỔ ĐỘI - Thao Tác 2] Ô 'Đội' (Phụ Bản Đội) KHÔNG được tích ➔ Bỏ qua Card E.")
+            return
+
         list_B = list(getattr(self, 'list_E_B', []))
         if not list_B:
             self.after(0, self.log_info, f"ℹ️ [TỔ ĐỘI - Thao Tác {mode}] [Danh Sách B] chưa có nhân vật nào -> Bỏ qua.")
@@ -4514,7 +4534,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 self.after(0, self.log_info, "⚠️ Chưa thấy ảnh 'card_a/a_tui.png' trên màn hình.")
 
             # 3. Cuộn tìm Vé Boss trong Túi:
-            # - Vuốt xuống: Swipe (920, 480 ➔ 920, 230 800ms) tối đa 5 lần (dừng nếu tìm thấy a_veboss.png hoặc phát hiện a_khoa.png).
+            # - Vuốt xuống: Swipe (920, 480 ➔ 920, 230 1000ms) tối đa 5 lần (dừng nếu tìm thấy a_veboss.png hoặc phát hiện a_khoa.png).
             # - Vuốt ngược lên: Swipe (920, 230 ➔ 920, 480 800ms) tối đa 5 lần đến khi thấy Vé Boss a_veboss.png.
             if self._should_stop_card_A(): return
             self.after(0, self.log_info, "📜 [Vé - Bước 3] Cuộn tìm ảnh Vé Boss 'card_a/a_veboss.png' (70%, ROI 745,230,1095,580)...")
@@ -4530,8 +4550,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 if khoa_x is not None and khoa_y is not None:
                     self.after(0, self.log_info, f"🔒 Phát hiện 'card_a/a_khoa.png' tại ({khoa_x}, {khoa_y}) nhưng chưa thấy Vé Boss ➔ Dừng cuộn xuống, chuyển sang cuộn ngược lên...")
                     break
-                self.after(0, self.log_info, f"📜 [Vé - Vuốt xuống {swipe_down_cnt+1}/5] Swipe (920, 480 ➔ 920, 230 800ms)...")
-                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 920 480 920 230 800"])
+                self.after(0, self.log_info, f"📜 [Vé - Vuốt xuống {swipe_down_cnt+1}/5] Swipe (920, 480 ➔ 920, 230 1000ms)...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input swipe 920 480 920 230 1000"])
                 time.sleep(1.0)
 
             if veboss_x is None or veboss_y is None:
@@ -4788,48 +4808,137 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
         time.sleep(0.4)
 
-    def _execute_buff_skill_cycle(self, dnconsole_path: str, tab_index: str, log_tag: str = "40 NPC / 2K"):
+    def _assign_quan_su_in_team(self, dnconsole_path: str, tab_index: str):
+        """Thao tác gán Quân Sư trong giao diện Đội cho Card D (Nhị Kiều Mốc Auto)"""
+        if self._should_stop_card_D(): return
+
+        # 1. Mở giao diện Đội: Quét tìm card_b/b_doi.png (85%, ROI 735, 405, 1280, 720)
+        self.after(0, self.log_info, "👁️ [Quân Sư - Nhị Kiều] Quét tìm 'card_b/b_doi.png' (85%, ROI 735, 405, 1280, 720)...")
+        b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(735, 405, 1280, 720))
+        if b_doi_x is not None and b_doi_y is not None:
+            self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_b/b_doi.png' tại ({b_doi_x}, {b_doi_y})! Tap click ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+            time.sleep(0.4)
+        else:
+            self.after(0, self.log_info, "👉 Chưa thấy 'card_b/b_doi.png' ➔ Tap nút menu góc dưới phải (1213, 648) / (1240, 680) mở menu ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+            time.sleep(0.4)
+            if self._should_stop_card_D(): return
+            b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(735, 405, 1280, 720))
+            if b_doi_x is not None and b_doi_y is not None:
+                self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_b/b_doi.png' tại ({b_doi_x}, {b_doi_y})! Tap click ➔ Hoãn 0.4s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+                time.sleep(0.4)
+            else:
+                self.after(0, self.log_info, "⚠️ Chưa quét thấy biểu tượng 'card_b/b_doi.png' trong bảng menu.")
+
+        # 2. Nếu ô Quân Sư (var_E_quan_su) được tích và có chọn tướng:
+        if hasattr(self, 'var_E_quan_su') and self.var_E_quan_su.get():
+            if self._should_stop_card_D(): return
+            quan_su_char = self.combo_E_quan_su.get() if hasattr(self, 'combo_E_quan_su') else ""
+            if quan_su_char and quan_su_char != "(Trống)":
+                self.after(0, self.log_info, f"👑 [Quân Sư] Quét nhận diện nhân vật Quân Sư '{quan_su_char}' (ROI 305, 150, 1105, 625)...")
+                qs_x, qs_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{quan_su_char}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                if qs_x is None or qs_y is None:
+                    qs_x, qs_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{quan_su_char}.png", threshold=0.80, region=(305, 150, 1105, 625))
+
+                if qs_x is not None and qs_y is not None:
+                    qs_btn_x = qs_x + 155
+                    qs_btn_y = qs_y + 40
+                    self.after(0, self.log_info, f"🎯 Phát hiện nhân vật Quân Sư '{quan_su_char}' tại ({qs_x}, {qs_y}) ➔ Tap nút Quân Sư ({qs_btn_x}, {qs_btn_y}) ➔ Hoãn 0.5s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {qs_btn_x} {qs_btn_y}"])
+                    time.sleep(0.5)
+                else:
+                    self.after(0, self.log_info, f"⚠️ Chưa quét thấy ảnh nhân vật Quân Sư '{quan_su_char}' trên màn hình Đội.")
+        else:
+            self.after(0, self.log_info, "ℹ️ Ô 'Quân Sư' (Card E) KHÔNG được tích ➔ Giữ nguyên quân sư hiện tại.")
+
+        # 3. Đóng giao diện Đội: Quét tap login_x.png (nếu có popup nổi) và tap nút đóng menu
+        if self._should_stop_card_D(): return
+        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
+        if lx_x is not None and lx_y is not None:
+            self.after(0, self.log_info, f"🎯 Phát hiện 'login_x.png' tại ({lx_x}, {lx_y})! Tap click ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+            time.sleep(0.4)
+
+        if self._should_stop_card_D(): return
+        self.after(0, self.log_info, "👉 Tap (1213, 648) ➔ Hoãn 0.4s để đóng menu giao diện Đội...")
+        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+        time.sleep(0.4)
+
+    def _execute_buff_skill_cycle(self, dnconsole_path: str, tab_index: str, log_tag: str = "40 NPC / 2K", is_nhi_kieu: bool = False):
         """Thực thi chuỗi Buff Skill (3 HP / 1 SP) lặp lại liên tục cho 40 NPC và Nhị Kiều"""
+        # Tự động nhận diện nếu đang ở chế độ Nhị Kiều
+        if not is_nhi_kieu:
+            is_nhi_kieu = (
+                "nhikieu" in log_tag.lower() or 
+                "nhị kiều" in log_tag.lower() or 
+                "nhi kieu" in log_tag.lower() or 
+                "trệt" in log_tag.lower() or 
+                "11 - 14" in log_tag.lower() or 
+                (hasattr(self, 'var_D4') and self.var_D4.get() and "40 npc" not in log_tag.lower())
+            )
+
+        end_battle_img_name = "d_hoanthanh.png" if is_nhi_kieu else "d_xacdinh.png"
+
         def _wait_for_turn_start():
             """
-            Quét card_f/f_vaotran.png (80%, 1s/lần) song song card_f/f_dung.png (80%, 0.5s/lần).
-            - Nếu thấy f_vaotran.png -> ngắt toàn bộ chuỗi Buff (return 'END_BATTLE').
-            - Nếu thấy f_dung.png -> ngưng quét f_vaotran.png -> quét f_tieptheo.png (80%, ROI 1050,530,1165,680) 0.25s/lần trong 0.5s.
-              Tap f_tieptheo nếu có, hoãn 0.2s -> return 'START_TURN'.
+            Quét f_dung.png (80%, 0.5s/lần) báo hiệu lượt buff mới.
+            - Với Nhị Kiều: Quét d_hoanthanh.png (70%, ROI 905,0,985,70) báo hiệu hết trận -> return 'END_BATTLE'.
+            - Với 40 NPC: Quét d_xacdinh.png (80%, ROI 275,540,980,670) báo hiệu hết trận -> return 'END_BATTLE'.
+            - Nếu thấy f_dung.png -> Bắt đầu lượt ra chiêu mới -> return 'START_TURN'.
             """
-            last_vaotran_check = 0.0
             while not self._should_stop_card_D():
-                now = time.time()
-                if now - last_vaotran_check >= 1.0:
-                    vt_x, vt_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/f_vaotran.png", threshold=0.80, region=(1215, 0, 1280, 45))
-                    if vt_x is not None and vt_y is not None:
-                        self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_vaotran.png' tại ({vt_x}, {vt_y}) ➔ Kết thúc trận đánh!")
+                # 1. Kiểm tra hết trận đánh
+                if is_nhi_kieu:
+                    # Nhị Kiều: Quét d_hoanthanh.png (ROI 905, 0, 985, 70, 70%) báo hiệu hết trận
+                    ht_chk_x, ht_chk_y = self._find_template_on_screen(
+                        dnconsole_path, tab_index, "card_d/d_hoanthanh.png",
+                        threshold=0.70, region=(905, 0, 985, 70)
+                    )
+                    if ht_chk_x is not None and ht_chk_y is not None:
+                        self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_d/d_hoanthanh.png' tại ({ht_chk_x}, {ht_chk_y}) ➔ Kết thúc trận đánh (Nhị Kiều)!")
                         return "END_BATTLE"
-                    last_vaotran_check = now
+                else:
+                    # 40 NPC: Quét Xác Định d_xacdinh.png (ROI 275, 540, 980, 670, 80%)
+                    xd_chk_x, xd_chk_y = self._find_template_on_screen(
+                        dnconsole_path, tab_index, "card_d/40npc/d_xacdinh.png",
+                        threshold=0.80, region=(275, 540, 980, 670)
+                    )
+                    if xd_chk_x is not None and xd_chk_y is not None:
+                        self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_d/40npc/d_xacdinh.png' tại ({xd_chk_x}, {xd_chk_y}) ➔ Kết thúc trận đánh (40 NPC)!")
+                        return "END_BATTLE"
 
-                dung_x, dung_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/f_dung.png", threshold=0.80, region=(640, 0, 1280, 145))
+                # 2. Quét f_dung.png (ROI 640, 0, 1280, 145, 80%) báo hiệu lượt ra chiêu mới
+                dung_x, dung_y = self._find_template_on_screen(
+                    dnconsole_path, tab_index, "card_f/f_dung.png",
+                    threshold=0.80, region=(640, 0, 1280, 145)
+                )
                 if dung_x is not None and dung_y is not None:
                     self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_dung.png' tại ({dung_x}, {dung_y}) ➔ Bắt đầu lượt mới!")
+                    # Thao tác chuẩn Card F: Quét tìm ảnh card_f/f_tieptheo.png (80%, ROI 1050,530,1165,680) nghỉ 0.25s/lần trong 0.5s
+                    self.after(0, self.log_info, "👁️ Quét tìm 'card_f/f_tieptheo.png' (80%, ROI 1050,530,1165,680) nghỉ 0.25s/lần trong 0.5s...")
+                    start_tt = time.time()
                     found_tt = False
-                    for _ in range(2):
-                        if self._should_stop_card_D(): break
+                    while time.time() - start_tt < 0.5:
+                        if self._should_stop_card_D(): return "END_BATTLE"
                         tt_x, tt_y = self._find_template_on_screen(
                             dnconsole_path, tab_index, "card_f/f_tieptheo.png",
                             threshold=0.80, region=(1050, 530, 1165, 680)
                         )
                         if tt_x is not None and tt_y is not None:
-                            self.after(0, self.log_info, f"🎯 Phát hiện 'card_f/f_tieptheo.png' tại ({tt_x}, {tt_y})! Tap click ➔ Hoãn 0.2s...")
+                            self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_tieptheo.png' tại ({tt_x}, {tt_y})! Tap click ➔ Hoãn 0.3s...")
                             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {tt_x} {tt_y}"])
+                            time.sleep(0.3)
                             found_tt = True
                             break
                         time.sleep(0.25)
 
                     if not found_tt:
-                        self.after(0, self.log_info, "ℹ️ Không thấy 'f_tieptheo.png' trong 0.5s ➔ Hoãn 0.2s sang Bước 2...")
-                    time.sleep(0.2)
+                        self.after(0, self.log_info, "ℹ️ Không thấy 'f_tieptheo.png' trong 0.5s ➔ Chuyển sang Bước 2...")
                     return "START_TURN"
 
-                time.sleep(0.1)
+                time.sleep(0.5)
 
             return "END_BATTLE"
 
@@ -4837,41 +4946,205 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             # Phase 1: Lượt 1 - Buff HP (3 Lần liên tiếp: hp_round = 1 ➔ 3)
             for hp_round in range(1, 4):
                 if self._should_stop_card_D(): return
-                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3 - Bước 1] Quét song song f_vaotran (1s) & f_dung (0.5s)...")
+                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3] Quét f_dung (0.5s) hoặc {end_battle_img_name} (hết trận)...")
                 res = _wait_for_turn_start()
                 if res == "END_BATTLE":
                     return
 
-                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3 - Bước 2] Quét & Buff HP...")
+                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3 - Bước 2] Quét tìm 'card_f/skill/f_hp.png' (85%, ROI 640,0,1280,145)...")
                 hp_x, hp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_hp.png", threshold=0.85, region=(640, 0, 1280, 145))
-                if hp_x is not None and hp_y is not None:
-                    self.after(0, self.log_info, f"🎯 Phát hiện 'f_hp.png' tại ({hp_x}, {hp_y})! Tap skill ➔ Tap target (905, 515)...")
+                if hp_x is None or hp_y is None:
+                    # NHÁNH A (Chuẩn theo Card F): KHÔNG thấy f_hp.png ➔ Tap 2 lần nút Auto hoãn 5s
+                    self.after(0, self.log_info, f"⚠️ [{log_tag} - Buff HP] KHÔNG thấy 'card_f/skill/f_hp.png' (85%) ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
+                    self._tap_login_auto_twice(dnconsole_path, tab_index)
+                    self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi lượt đánh)...")
+                    if self._sleep_with_stop_check(5.0): return
+                else:
+                    # NHÁNH B (Chuẩn theo Card F): CÓ thấy f_hp.png ➔ Tap skill ➔ Tap đồng đội ➔ Tap 2 lần Auto hoãn 5s
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Đã thấy 'card_f/skill/f_hp.png' tại ({hp_x}, {hp_y}) ➔ Tap click ➔ Hoãn 0.2s...")
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {hp_x} {hp_y}"])
                     time.sleep(0.2)
+                    if self._should_stop_card_D(): return
+
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Tap mục tiêu đồng đội (905, 515) ➔ Hoãn 0.2s...")
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 905 515"])
                     time.sleep(0.2)
-                self._tap_login_auto_twice(dnconsole_path, tab_index)
-                self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
-                if self._sleep_with_stop_check(5.0): return
+                    if self._should_stop_card_D(): return
+
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
+                    self._tap_login_auto_twice(dnconsole_path, tab_index)
+                    self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
+                    if self._sleep_with_stop_check(5.0): return
 
             # Phase 2: Lượt 2 - Buff SP (1 Lần)
             if self._should_stop_card_D(): return
-            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2 - Bước 1] Quét song song f_vaotran (1s) & f_dung (0.5s)...")
+            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2] Quét f_dung (0.5s) hoặc {end_battle_img_name} (hết trận)...")
             res = _wait_for_turn_start()
             if res == "END_BATTLE":
                 return
 
-            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2 - Bước 2] Quét & Buff SP...")
+            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2 - Bước 2] Quét tìm 'card_f/skill/f_sp.png' (85%, ROI 640,0,1280,145)...")
             sp_x, sp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_sp.png", threshold=0.85, region=(640, 0, 1280, 145))
-            if sp_x is not None and sp_y is not None:
-                self.after(0, self.log_info, f"🎯 Phát hiện 'f_sp.png' tại ({sp_x}, {sp_y})! Tap skill ➔ Tap target (905, 515)...")
+            if sp_x is None or sp_y is None:
+                # NHÁNH A (Chuẩn theo Card F): KHÔNG thấy f_sp.png ➔ Tap 2 lần nút Auto hoãn 5s
+                self.after(0, self.log_info, f"⚠️ [{log_tag} - Buff SP] KHÔNG thấy 'card_f/skill/f_sp.png' (85%) ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
+                self._tap_login_auto_twice(dnconsole_path, tab_index)
+                self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi lượt đánh)...")
+                if self._sleep_with_stop_check(5.0): return
+            else:
+                # NHÁNH B (Chuẩn theo Card F): CÓ thấy f_sp.png ➔ Tap skill ➔ Tap đồng đội ➔ Tap 2 lần Auto hoãn 5s
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Đã thấy 'card_f/skill/f_sp.png' tại ({sp_x}, {sp_y}) ➔ Tap click ➔ Hoãn 0.2s...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {sp_x} {sp_y}"])
                 time.sleep(0.2)
+                if self._should_stop_card_D(): return
+
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Tap mục tiêu đồng đội (905, 515) ➔ Hoãn 0.2s...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 905 515"])
                 time.sleep(0.2)
-            self._tap_login_auto_twice(dnconsole_path, tab_index)
-            self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
-            if self._sleep_with_stop_check(5.0): return
+                if self._should_stop_card_D(): return
+
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
+                self._tap_login_auto_twice(dnconsole_path, tab_index)
+                self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
+                if self._sleep_with_stop_check(5.0): return
+
+    def _execute_buff_skill_cycle_auto(self, dnconsole_path: str, tab_index: str, log_tag: str = "Nhị Kiều Auto"):
+        """
+        Chuỗi Buff Skill (3 HP / 1 SP) chuyên dụng cho Mốc Auto của Nhị Kiều:
+        - Bước 4.0: Chờ card_f/f_vaotran.png (80%, ROI 1215, 0, 1280, 45) biến mất hoàn toàn (xác nhận vào trận).
+        - Bước 4.1: Vòng lặp chu kỳ buff 3 HP / 1 SP.
+          + Trong mỗi lượt chờ: quét f_vaotran.png (nếu thấy lại ➔ END_BATTLE thoát chuỗi buff ngay).
+          + Quét f_dung.png (ROI 640, 0, 1280, 145, 80%) mỗi 0.5s báo hiệu lượt mới ➔ Quét tìm tap f_tieptheo.png trong 0.5s.
+          + Ra chiêu Buff HP/SP (Nhánh A: tap 2 lần Auto hoãn 5s; Nhánh B: tap skill hoãn 0.2s ➔ tap đồng đội 905, 515 hoãn 0.2s ➔ tap 2 lần Auto hoãn 5s).
+        """
+        if self._should_stop_card_D(): return
+
+        # === BƯỚC 4.0: BƯỚC ĐỆM (Chờ f_vaotran.png biến mất hoàn toàn) ===
+        self.after(0, self.log_info, f"👁️ [{log_tag} - Bước Đệm] Chờ 'card_f/f_vaotran.png' (ROI 1215, 0, 1280, 45) biến mất hoàn toàn...")
+        while not self._should_stop_card_D():
+            vt_x, vt_y = self._find_template_on_screen(
+                dnconsole_path, tab_index, "card_f/f_vaotran.png",
+                threshold=0.80, region=(1215, 0, 1280, 45)
+            )
+            if vt_x is None or vt_y is None:
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Bước Đệm] 'card_f/f_vaotran.png' đã biến mất ➔ Đã chính thức vào trận đấu!")
+                break
+            time.sleep(0.5)
+
+        def _wait_for_turn_start_auto():
+            """
+            Quét f_dung.png (80%, 0.5s/lần) báo hiệu lượt buff mới.
+            - Quét f_vaotran.png (ROI 1215, 0, 1280, 45, 80%) xuất hiện lại ➔ Báo hiệu hết trận ➔ return 'END_BATTLE'.
+            - Nếu thấy f_dung.png ➔ Bắt đầu lượt ra chiêu mới ➔ return 'START_TURN'.
+            """
+            while not self._should_stop_card_D():
+                # 1. Kiểm tra hết trận đánh qua f_vaotran.png xuất hiện lại
+                vt_chk_x, vt_chk_y = self._find_template_on_screen(
+                    dnconsole_path, tab_index, "card_f/f_vaotran.png",
+                    threshold=0.80, region=(1215, 0, 1280, 45)
+                )
+                if vt_chk_x is not None and vt_chk_y is not None:
+                    self.after(0, self.log_info, f"🎯 [{log_tag}] Phát hiện 'card_f/f_vaotran.png' xuất hiện lại tại ({vt_chk_x}, {vt_chk_y}) ➔ Trận đấu đã kết thúc!")
+                    return "END_BATTLE"
+
+                # 2. Quét f_dung.png (ROI 640, 0, 1280, 145, 80%) báo hiệu lượt ra chiêu mới
+                dung_x, dung_y = self._find_template_on_screen(
+                    dnconsole_path, tab_index, "card_f/f_dung.png",
+                    threshold=0.80, region=(640, 0, 1280, 145)
+                )
+                if dung_x is not None and dung_y is not None:
+                    self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_dung.png' tại ({dung_x}, {dung_y}) ➔ Bắt đầu lượt mới!")
+                    # Quét tìm ảnh card_f/f_tieptheo.png (80%, ROI 1050,530,1165,680) nghỉ 0.25s/lần trong 0.5s
+                    start_tt = time.time()
+                    found_tt = False
+                    while time.time() - start_tt < 0.5:
+                        if self._should_stop_card_D(): return "END_BATTLE"
+                        tt_x, tt_y = self._find_template_on_screen(
+                            dnconsole_path, tab_index, "card_f/f_tieptheo.png",
+                            threshold=0.80, region=(1050, 530, 1165, 680)
+                        )
+                        if tt_x is not None and tt_y is not None:
+                            self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_tieptheo.png' tại ({tt_x}, {tt_y})! Tap click ➔ Hoãn 0.3s...")
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {tt_x} {tt_y}"])
+                            time.sleep(0.3)
+                            found_tt = True
+                            break
+                        time.sleep(0.25)
+
+                    if not found_tt:
+                        self.after(0, self.log_info, "ℹ️ Không thấy 'f_tieptheo.png' trong 0.5s ➔ Chuyển sang ra chiêu...")
+                    return "START_TURN"
+
+                time.sleep(0.5)
+
+            return "END_BATTLE"
+
+        # === BƯỚC 4.1: VÒNG LẶP CHU KỲ BUFF (3 HP / 1 SP) ===
+        while not self._should_stop_card_D():
+            # Phase 1: Buff HP (3 Lần liên tiếp)
+            for hp_round in range(1, 4):
+                if self._should_stop_card_D(): return
+                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3] Quét f_dung (0.5s) hoặc f_vaotran (hết trận)...")
+                res = _wait_for_turn_start_auto()
+                if res == "END_BATTLE":
+                    return
+
+                self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [HP Lần {hp_round}/3 - Bước 2] Quét tìm 'card_f/skill/f_hp.png' (85%, ROI 640,0,1280,145)...")
+                hp_x, hp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_hp.png", threshold=0.85, region=(640, 0, 1280, 145))
+                if hp_x is None or hp_y is None:
+                    # NHÁNH A: KHÔNG thấy f_hp.png ➔ Tap 2 lần Auto hoãn 5s
+                    self.after(0, self.log_info, f"⚠️ [{log_tag} - Buff HP] KHÔNG thấy 'card_f/skill/f_hp.png' ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
+                    self._tap_login_auto_twice(dnconsole_path, tab_index)
+                    self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi lượt đánh)...")
+                    if self._sleep_with_stop_check(5.0): return
+                else:
+                    # NHÁNH B: CÓ thấy f_hp.png ➔ Tap skill ➔ Tap đồng đội ➔ Tap 2 lần Auto hoãn 5s
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Đã thấy 'card_f/skill/f_hp.png' tại ({hp_x}, {hp_y}) ➔ Tap click ➔ Hoãn 0.2s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {hp_x} {hp_y}"])
+                    time.sleep(0.2)
+                    if self._should_stop_card_D(): return
+
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Tap mục tiêu đồng đội (905, 515) ➔ Hoãn 0.2s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 905 515"])
+                    time.sleep(0.2)
+                    if self._should_stop_card_D(): return
+
+                    self.after(0, self.log_info, f"🎯 [{log_tag} - Buff HP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
+                    self._tap_login_auto_twice(dnconsole_path, tab_index)
+                    self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
+                    if self._sleep_with_stop_check(5.0): return
+
+            # Phase 2: Buff SP (1 Lần)
+            if self._should_stop_card_D(): return
+            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2] Quét f_dung (0.5s) hoặc f_vaotran (hết trận)...")
+            res = _wait_for_turn_start_auto()
+            if res == "END_BATTLE":
+                return
+
+            self.after(0, self.log_info, f"🔄 [{log_tag} - Buff 3HP/1SP] ➔ [SP Lượt 2 - Bước 2] Quét tìm 'card_f/skill/f_sp.png' (85%, ROI 640,0,1280,145)...")
+            sp_x, sp_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/skill/f_sp.png", threshold=0.85, region=(640, 0, 1280, 145))
+            if sp_x is None or sp_y is None:
+                # NHÁNH A: KHÔNG thấy f_sp.png ➔ Tap 2 lần nút Auto hoãn 5s
+                self.after(0, self.log_info, f"⚠️ [{log_tag} - Buff SP] KHÔNG thấy 'card_f/skill/f_sp.png' ➔ Tap 2 lần nút Auto (190, 140) hoãn 5s...")
+                self._tap_login_auto_twice(dnconsole_path, tab_index)
+                self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi lượt đánh)...")
+                if self._sleep_with_stop_check(5.0): return
+            else:
+                # NHÁNH B: CÓ thấy f_sp.png ➔ Tap skill ➔ Tap đồng đội ➔ Tap 2 lần Auto hoãn 5s
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Đã thấy 'card_f/skill/f_sp.png' tại ({sp_x}, {sp_y}) ➔ Tap click ➔ Hoãn 0.2s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {sp_x} {sp_y}"])
+                time.sleep(0.2)
+                if self._should_stop_card_D(): return
+
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Tap mục tiêu đồng đội (905, 515) ➔ Hoãn 0.2s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 905 515"])
+                time.sleep(0.2)
+                if self._should_stop_card_D(): return
+
+                self.after(0, self.log_info, f"🎯 [{log_tag} - Buff SP] Tap 2 lần nút Auto (190, 140) ➔ Hoãn 5s...")
+                self._tap_login_auto_twice(dnconsole_path, tab_index)
+                self.after(0, self.log_info, "⏳ Hoãn cố định 5.0s (chờ hồi skill/lượt đánh)...")
+                if self._sleep_with_stop_check(5.0): return
 
     def _run_40_npc_su_kien_tang(self, dnconsole_path: str, tab_index: str, selected_tang: str, selected_team_char: str, selected_chien_dau: str = "Auto"):
         """THAO TÁC 2: 40 NPC (CHỈ THỰC THI KHI Ô 40 NPC VAR_D3 ĐƯỢC TÍCH)"""
@@ -4900,61 +5173,66 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             if self._should_stop_card_D(): return
             self.after(0, self.log_info, "🎯 [40 NPC - Auto - Bước 1] Đã đến mốc 20:00:00!")
 
-            # 2. Kiểm Tra Đủ Thành Viên Tổ Đội (Lần 1)
+            # 2. Kiểm Tra Đủ Thành Viên Tổ Đội (Lần 1 - Chỉ thực thi khi ô 'Tổ Đội' var_D2 được tích)
             if self._should_stop_card_D(): return
-            list_B = list(getattr(self, 'list_E_B', []))
-            if list_B:
-                self.after(0, self.log_info, f"👁️ [40 NPC - Auto] Kiểm tra độ đầy đủ tổ đội Lần 1 ({len(list_B)} thành viên: {', '.join(list_B)})...")
-                while not self._should_stop_card_D():
-                    if self._should_stop_card_D(): return
-                    lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
-                    if lx_x is not None and lx_y is not None:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
-                        time.sleep(0.4)
+            if hasattr(self, 'var_D2') and self.var_D2.get():
+                list_B = list(getattr(self, 'list_E_B', []))
+                if list_B:
+                    self.after(0, self.log_info, f"👁️ [40 NPC - Auto] Kiểm tra độ đầy đủ tổ đội Lần 1 ({len(list_B)} thành viên: {', '.join(list_B)})...")
+                    while not self._should_stop_card_D():
+                        if self._should_stop_card_D(): return
+                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
+                        if lx_x is not None and lx_y is not None:
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                            time.sleep(0.4)
 
-                    if self._should_stop_card_D(): return
-                    b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85)
-                    if b_doi_x is not None and b_doi_y is not None:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
-                        time.sleep(0.4)
-                    else:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
                         if self._should_stop_card_D(): return
                         b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85)
                         if b_doi_x is not None and b_doi_y is not None:
                             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
                             time.sleep(0.4)
-
-                    all_present = True
-                    missing_list = []
-                    for char_name in list_B:
-                        if self._should_stop_card_D(): return
-                        chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{char_name}.png", threshold=0.80)
-                        if chk_x is None or chk_y is None:
-                            chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
-                        if chk_x is None or chk_y is None:
-                            all_present = False
-                            missing_list.append(char_name)
-
-                    if all_present:
-                        self.after(0, self.log_info, f"✅ [40 NPC - Auto] Lần 1: Tổ đội đã ĐỦ {len(list_B)} thành viên!")
-                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
-                        if lx_x is not None and lx_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                        else:
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
                             time.sleep(0.4)
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
-                        break
-                    else:
-                        self.after(0, self.log_info, f"⚠️ [40 NPC - Auto] Lần 1: Đội thiếu: {', '.join(missing_list)} ➔ Gọi Thao tác 1 Tổ Đội...")
-                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
-                        if lx_x is not None and lx_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                            if self._should_stop_card_D(): return
+                            b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85)
+                            if b_doi_x is not None and b_doi_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+                                time.sleep(0.4)
+
+                        present_members = []
+                        missing_list = []
+                        for char_name in list_B:
+                            if self._should_stop_card_D(): return
+                            chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{char_name}.png", threshold=0.80)
+                            if chk_x is None or chk_y is None:
+                                chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                            if chk_x is not None and chk_y is not None:
+                                present_members.append(char_name)
+                            else:
+                                missing_list.append(char_name)
+
+                        target_count = min(4, len(list_B))
+                        if len(present_members) >= target_count:
+                            self.after(0, self.log_info, f"✅ [40 NPC - Auto] Lần 1: Tổ đội đã ĐỦ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})!")
+                            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
+                            if lx_x is not None and lx_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                                time.sleep(0.4)
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
                             time.sleep(0.4)
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
-                        self._execute_card_E_for_mode(dnconsole_path, "", tab_index, mode=1)
+                            break
+                        else:
+                            self.after(0, self.log_info, f"⚠️ [40 NPC - Auto] Lần 1: Đội chưa đủ {target_count} người (Hiện có: {len(present_members)}, Thiếu: {', '.join(missing_list)}) ➔ Gọi Thao tác 1 Tổ Đội...")
+                            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75)
+                            if lx_x is not None and lx_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                                time.sleep(0.4)
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
+                            time.sleep(0.4)
+                            self._execute_card_E_for_mode(dnconsole_path, "", tab_index, mode=1)
+            else:
+                self.after(0, self.log_info, "ℹ️ [40 NPC - Auto] Ô 'Tổ Đội' KHÔNG được tích ➔ Bỏ qua bước kiểm tra tổ đội Lần 1.")
 
             # BƯỚC 3 (Vào Lôi Đài):
             # 3.1: Quét & Tap d_dichuyen.png (70%, ROI 0,400,1280,720) -> Hoãn 2.0s
@@ -4993,59 +5271,65 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     break
                 time.sleep(0.5)
 
-            # BƯỚC 4 (Kiểm tra Đội lần 2): Quét lại danh sách thành viên tổ đội sau khi đã vào bản đồ lôi đài
+            # BƯỚC 4 (Kiểm tra Đội lần 2 - Chỉ thực thi khi ô 'Tổ Đội' var_D2 được tích): Quét lại danh sách thành viên tổ đội sau khi đã vào bản đồ lôi đài
             if self._should_stop_card_D(): return
-            if list_B:
-                self.after(0, self.log_info, f"👁️ [40 NPC - Auto - Bước 4] Kiểm tra độ đầy đủ tổ đội Lần 2 ({len(list_B)} thành viên)...")
-                while not self._should_stop_card_D():
-                    lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
-                    if lx_x is not None and lx_y is not None:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
-                        time.sleep(0.4)
+            if hasattr(self, 'var_D2') and self.var_D2.get():
+                list_B = list(getattr(self, 'list_E_B', []))
+                if list_B:
+                    self.after(0, self.log_info, f"👁️ [40 NPC - Auto - Bước 4] Kiểm tra độ đầy đủ tổ đội Lần 2 ({len(list_B)} thành viên)...")
+                    while not self._should_stop_card_D():
+                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
+                        if lx_x is not None and lx_y is not None:
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                            time.sleep(0.4)
 
-                    if self._should_stop_card_D(): return
-                    b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(730, 405, 1200, 720))
-                    if b_doi_x is not None and b_doi_y is not None:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
-                        time.sleep(0.4)
-                    else:
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
                         if self._should_stop_card_D(): return
                         b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(730, 405, 1200, 720))
                         if b_doi_x is not None and b_doi_y is not None:
                             self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
                             time.sleep(0.4)
-
-                    all_present = True
-                    missing_list = []
-                    for char_name in list_B:
-                        if self._should_stop_card_D(): return
-                        chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
-                        if chk_x is None or chk_y is None:
-                            chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
-                        if chk_x is None or chk_y is None:
-                            all_present = False
-                            missing_list.append(char_name)
-
-                    if all_present:
-                        self.after(0, self.log_info, f"✅ [40 NPC - Auto - Bước 4] Lần 2: Tổ đội đã ĐỦ {len(list_B)} thành viên!")
-                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
-                        if lx_x is not None and lx_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                        else:
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
                             time.sleep(0.4)
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
-                        break
-                    else:
-                        self.after(0, self.log_info, f"⚠️ [40 NPC - Auto - Bước 4] Lần 2: Đội thiếu: {', '.join(missing_list)} ➔ Gọi Thao tác 1 Tổ Đội...")
-                        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
-                        if lx_x is not None and lx_y is not None:
-                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                            if self._should_stop_card_D(): return
+                            b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(730, 405, 1200, 720))
+                            if b_doi_x is not None and b_doi_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+                                time.sleep(0.4)
+
+                        present_members = []
+                        missing_list = []
+                        for char_name in list_B:
+                            if self._should_stop_card_D(): return
+                            chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                            if chk_x is None or chk_y is None:
+                                chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                            if chk_x is not None and chk_y is not None:
+                                present_members.append(char_name)
+                            else:
+                                missing_list.append(char_name)
+
+                        target_count = min(4, len(list_B))
+                        if len(present_members) >= target_count:
+                            self.after(0, self.log_info, f"✅ [40 NPC - Auto - Bước 4] Lần 2: Tổ đội đã ĐỦ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})!")
+                            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
+                            if lx_x is not None and lx_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                                time.sleep(0.4)
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
                             time.sleep(0.4)
-                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
-                        time.sleep(0.4)
-                        self._execute_card_E_for_mode(dnconsole_path, "", tab_index, mode=1)
+                            break
+                        else:
+                            self.after(0, self.log_info, f"⚠️ [40 NPC - Auto - Bước 4] Lần 2: Đội chưa đủ {target_count} người (Hiện có: {len(present_members)}, Thiếu: {', '.join(missing_list)}) ➔ Gọi Thao tác 1 Tổ Đội...")
+                            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(860, 70, 1170, 200))
+                            if lx_x is not None and lx_y is not None:
+                                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                                time.sleep(0.4)
+                            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1240 680"])
+                            time.sleep(0.4)
+                            self._execute_card_E_for_mode(dnconsole_path, "", tab_index, mode=1)
+            else:
+                self.after(0, self.log_info, "ℹ️ [40 NPC - Auto] Ô 'Tổ Đội' KHÔNG được tích ➔ Bỏ qua bước kiểm tra tổ đội Lần 2.")
 
             # BƯỚC 5 (Vào trận đầu tiên - 9 Thao tác):
             if self._should_stop_card_D(): return
@@ -5137,32 +5421,25 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             for loidai_round in range(1, 39):
                 if self._should_stop_card_D(): return
 
-                # 6.1: Quét (không tap) f_vaotran.png (80%, ROI 1215,0,1280,45) mỗi 1.0s cho đến khi thấy
-                self.after(0, self.log_info, f"🔄 [40 NPC - Auto - Lượt {loidai_round}/38 - Bước 6.1] Quét (không tap) 'card_f/f_vaotran.png' (80%) mỗi 1.0s...")
+                # 6.1: Quét (không tap) f_vaotran.png (80%, ROI 1215,0,1280,45) mỗi 0.5s cho đến khi thấy
+                self.after(0, self.log_info, f"🔄 [40 NPC - Auto - Lượt {loidai_round}/38 - Bước 6.1] Quét (không tap) 'card_f/f_vaotran.png' (80%) mỗi 0.5s...")
                 while not self._should_stop_card_D():
                     vt_chk_x, vt_chk_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/f_vaotran.png", threshold=0.80, region=(1215, 0, 1280, 45))
                     if vt_chk_x is not None and vt_chk_y is not None:
                         self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_vaotran.png' tại ({vt_chk_x}, {vt_chk_y})!")
                         break
-                    time.sleep(1.0)
+                    time.sleep(0.5)
 
-                # 6.2: Quét & Tap d_xacdinh.png (80%, ROI 275,540,980,670). Chưa thấy d_35: Hoãn 5.0s. Đã thấy d_35: Hoãn 0.5s.
+                # 6.2: Quét & Tap d_xacdinh.png (80%, ROI 275,540,980,670) ➔ Hoãn 2.5s vào trận (cả thấy & không thấy d_35).
                 if self._should_stop_card_D(): return
                 self.after(0, self.log_info, f"👁️ [40 NPC - Auto - Lượt {loidai_round}/38 - Bước 6.2] Quét & Tap nút Xác Định 'card_d/40npc/d_xacdinh.png' (80%)...")
                 xd_x, xd_y = None, None
                 while not self._should_stop_card_D():
                     xd_x, xd_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_xacdinh.png", threshold=0.80, region=(275, 540, 980, 670))
                     if xd_x is not None and xd_y is not None:
-                        self.after(0, self.log_info, f"🎯 Tap 'd_xacdinh.png' tại ({xd_x}, {xd_y})!")
+                        self.after(0, self.log_info, f"🎯 Tap 'd_xacdinh.png' tại ({xd_x}, {xd_y})! ➔ Hoãn 2.5s...")
                         self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {xd_x} {xd_y}"])
-                        if has_seen_d35:
-                            self.after(0, self.log_info, "⚡ [Đã thấy d_35] ➔ Hoãn 0.5s...")
-                            time.sleep(0.5)
-                        else:
-                            self.after(0, self.log_info, "⏳ [Chưa thấy d_35] ➔ Hoãn 5.0s...")
-                            for _ in range(5):
-                                if self._should_stop_card_D(): return
-                                time.sleep(1.0)
+                        time.sleep(2.5)
                         break
                     time.sleep(0.5)
 
@@ -5173,16 +5450,16 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     self.after(0, self.log_info, "⚡ [Bước 6.3] Đã từng thấy d_35.png ở lượt trước ➔ BỎ QUA QUÉT d_35.png, nhảy thẳng sang 6.4!")
                     found_d35_this_round = True
                 else:
-                    self.after(0, self.log_info, "👁️ [Bước 6.3] Quét (không tap) 'card_d/40npc/d_35.png' (80%, ROI 1020,265,1125,295) mỗi 1.0s (tối đa 5 lần)...")
-                    for _ in range(5):
+                    self.after(0, self.log_info, "👁️ [Bước 6.3] Quét (không tap) 'card_d/40npc/d_35.png' (80%, ROI 175,220,265,245) mỗi 0.5s (tối đa 4 lần)...")
+                    for _ in range(4):
                         if self._should_stop_card_D(): break
-                        d35_x, d35_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_35.png", threshold=0.80, region=(1020, 265, 1125, 295))
+                        d35_x, d35_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_35.png", threshold=0.80, region=(175, 220, 265, 245))
                         if d35_x is not None and d35_y is not None:
                             found_d35_this_round = True
                             has_seen_d35 = True
                             self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_d/40npc/d_35.png' tại ({d35_x}, {d35_y})!")
                             break
-                        time.sleep(1.0)
+                        time.sleep(0.5)
 
                 # 6.4 (Phân nhánh Buff Skill):
                 if self._should_stop_card_D(): return
@@ -5198,7 +5475,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     # Kích hoạt Buff Skill (3 HP / 1 SP)
                     self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag="40 NPC")
                 else:
-                    self.after(0, self.log_info, "🔴 Không thấy d_35.png (sau 5 lần) ➔ Quay lại Bước 6.1 cho lượt kế tiếp.")
+                    self.after(0, self.log_info, "🔴 Không thấy d_35.png (sau 4 lần) ➔ Quay lại Bước 6.1 cho lượt kế tiếp.")
 
         elif selected_chien_dau == "Click":
             # =========================================================================
@@ -5234,32 +5511,25 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             for loidai_round in range(1, 39):
                 if self._should_stop_card_D(): return
 
-                # 3.1: Quét (không tap) f_vaotran.png (80%, ROI 1215,0,1280,45) mỗi 1.0s cho tới khi thấy
-                self.after(0, self.log_info, f"🔄 [40 NPC - Click - Lượt {loidai_round}/38 - Bước 3.1] Quét (không tap) 'card_f/f_vaotran.png' (80%) mỗi 1.0s...")
+                # 3.1: Quét (không tap) f_vaotran.png (80%, ROI 1215,0,1280,45) mỗi 0.5s cho tới khi thấy
+                self.after(0, self.log_info, f"🔄 [40 NPC - Click - Lượt {loidai_round}/38 - Bước 3.1] Quét (không tap) 'card_f/f_vaotran.png' (80%) mỗi 0.5s...")
                 while not self._should_stop_card_D():
                     vt_chk_x, vt_chk_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_f/f_vaotran.png", threshold=0.80, region=(1215, 0, 1280, 45))
                     if vt_chk_x is not None and vt_chk_y is not None:
                         self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_f/f_vaotran.png' tại ({vt_chk_x}, {vt_chk_y})!")
                         break
-                    time.sleep(1.0)
+                    time.sleep(0.5)
 
-                # 3.2: Quét & Tap d_xacdinh.png (80%, ROI 275,540,980,670). Chưa thấy d_35: Hoãn 5.0s. Đã thấy d_35: Hoãn 0.5s.
+                # 3.2: Quét & Tap d_xacdinh.png (80%, ROI 275,540,980,670) ➔ Hoãn 2.5s vào trận (cả thấy & không thấy d_35).
                 if self._should_stop_card_D(): return
                 self.after(0, self.log_info, f"👁️ [40 NPC - Click - Lượt {loidai_round}/38 - Bước 3.2] Quét & Tap nút Xác Định 'card_d/40npc/d_xacdinh.png' (80%)...")
                 xd_x, xd_y = None, None
                 while not self._should_stop_card_D():
                     xd_x, xd_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_xacdinh.png", threshold=0.80, region=(275, 540, 980, 670))
                     if xd_x is not None and xd_y is not None:
-                        self.after(0, self.log_info, f"🎯 Tap 'd_xacdinh.png' tại ({xd_x}, {xd_y})!")
+                        self.after(0, self.log_info, f"🎯 Tap 'd_xacdinh.png' tại ({xd_x}, {xd_y})! ➔ Hoãn 2.5s...")
                         self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {xd_x} {xd_y}"])
-                        if has_seen_d35_click:
-                            self.after(0, self.log_info, "⚡ [Đã thấy d_35] ➔ Hoãn 0.5s...")
-                            time.sleep(0.5)
-                        else:
-                            self.after(0, self.log_info, "⏳ [Chưa thấy d_35] ➔ Hoãn 5.0s...")
-                            for _ in range(5):
-                                if self._should_stop_card_D(): return
-                                time.sleep(1.0)
+                        time.sleep(2.5)
                         break
                     time.sleep(0.5)
 
@@ -5270,16 +5540,16 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     self.after(0, self.log_info, "⚡ [Bước 3.3] Đã từng thấy d_35.png ở lượt trước ➔ BỎ QUA QUÉT d_35.png, nhảy thẳng sang 3.4!")
                     found_d35_this_round = True
                 else:
-                    self.after(0, self.log_info, "👁️ [Bước 3.3] Quét (không tap) 'card_d/40npc/d_35.png' (80%, ROI 1020,265,1125,295) mỗi 1.0s (tối đa 5 lần)...")
-                    for _ in range(5):
+                    self.after(0, self.log_info, "👁️ [Bước 3.3] Quét (không tap) 'card_d/40npc/d_35.png' (80%, ROI 175,220,265,245) mỗi 0.5s (tối đa 4 lần)...")
+                    for _ in range(4):
                         if self._should_stop_card_D(): break
-                        d35_x, d35_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_35.png", threshold=0.80, region=(1020, 265, 1125, 295))
+                        d35_x, d35_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/40npc/d_35.png", threshold=0.80, region=(175, 220, 265, 245))
                         if d35_x is not None and d35_y is not None:
                             found_d35_this_round = True
                             has_seen_d35_click = True
                             self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_d/40npc/d_35.png' tại ({d35_x}, {d35_y})!")
                             break
-                        time.sleep(1.0)
+                        time.sleep(0.5)
 
                 # 3.4 (Phân nhánh Buff Skill):
                 if self._should_stop_card_D(): return
@@ -5295,7 +5565,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     # Kích hoạt Buff Skill (3 HP / 1 SP)
                     self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag="40 NPC")
                 else:
-                    self.after(0, self.log_info, "🔴 Không thấy d_35.png (sau 5 lần) ➔ Quay lại Bước 3.1 cho lượt kế tiếp.")
+                    self.after(0, self.log_info, "🔴 Không thấy d_35.png (sau 4 lần) ➔ Quay lại Bước 3.1 cho lượt kế tiếp.")
 
 
 
@@ -5319,7 +5589,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         selected_team_char = self.combo_D_team_char.get() if hasattr(self, 'combo_D_team_char') else "Xuất Chiến"
         selected_chien_dau = self.combo_D_chien_dau.get() if hasattr(self, 'combo_D_chien_dau') else "Auto"
-        selected_tang = self.combo_D_tang.get() if hasattr(self, 'combo_D_tang') else "Trệt - 10"
+        selected_tang = self.combo_D_tang.get() if hasattr(self, 'combo_D_tang') else "Auto"
 
         info_details = []
         if self.var_D2.get():
@@ -5366,7 +5636,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         self.after(0, self.save_config)
         self.after(0, self.log_info, "✅ [5/6: 40 NPC / 2K] Đã thực thi hoàn tất dứt điểm! (Đã tự động tắt công tắc ON/OFF & giữ nguyên các ô tích)")
 
-    def _run_nhi_kieu_tang_tret_10(self, dnconsole_path: str, tab_index: str, loop_count: int = 10, mode_name: str = "Trệt - 10", run_stages_1_to_3: bool = True, only_stages_1_to_3: bool = False, check_until_dinh: bool = False, card_name: str = "40 NPC"):
+    def _run_nhi_kieu_tang_tret_10(self, dnconsole_path: str, tab_index: str, loop_count: int = 10, mode_name: str = "Trệt - 10", run_stages_1_to_3: bool = True, only_stages_1_to_3: bool = False, check_until_dinh: bool = False, card_name: str = "40 NPC", use_auto_buff: bool = False, target_finish_img: str = None):
         """THAO TÁC CHI TIẾT MỐC ĐÀI NHỊ KIỀU: Trệt - 10 & 11 - 14"""
         def should_stop() -> bool:
             return self._should_stop_card_D()
@@ -5523,13 +5793,13 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             _tap_f_tieptheo_until_lost(tap_interval=0.5, delay_after=0.5)
             if should_stop(): return
 
-            # 2.5: Tap card_d/nhikieu/d_buoc2.png (75%) mỗi 0.5s đến khi mất ➔ Hoãn 2.0s
-            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 2.5] Tap 'd_buoc2.png' mỗi 0.5s đến khi mất ➔ Hoãn 2.0s...")
+            # 2.5: Tap card_d/nhikieu/d_buoc2.png (75%) mỗi 1.5s đến khi mất ➔ Hoãn 2.0s
+            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 2.5] Tap 'd_buoc2.png' mỗi 1.5s đến khi mất ➔ Hoãn 2.0s...")
             while not should_stop():
                 b2_curr_x, b2_curr_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/nhikieu/d_buoc2.png", threshold=0.75)
                 if b2_curr_x is not None and b2_curr_y is not None:
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b2_curr_x} {b2_curr_y}"])
-                    time.sleep(0.5)
+                    time.sleep(1.5)
                 else:
                     self.after(0, self.log_info, "✅ 'd_buoc2.png' đã mất! ➔ Hoãn 2.0s...")
                     time.sleep(2.0)
@@ -5565,13 +5835,13 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             time.sleep(0.3)
             if should_stop(): return
 
-            # 3.6: Tap d_buoc3.png (80%) mỗi 0.5s đến khi mất ➔ Hoãn 2.0s
-            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 3.6] Tap 'd_buoc3.png' mỗi 0.5s đến khi mất ➔ Hoãn 2.0s...")
+            # 3.6: Tap d_buoc3.png (80%) mỗi 3s đến khi mất ➔ Hoãn 2.0s
+            self.after(0, self.log_info, f"👉 [{mode_name} - Bước 3.6] Tap 'd_buoc3.png' (80%) mỗi 3s đến khi mất ➔ Hoãn 2.0s...")
             while not should_stop():
                 b3_x, b3_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_d/nhikieu/d_buoc3.png", threshold=0.80)
                 if b3_x is not None and b3_y is not None:
                     self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b3_x} {b3_y}"])
-                    time.sleep(0.5)
+                    time.sleep(3.0)
                 else:
                     self.after(0, self.log_info, "✅ 'd_buoc3.png' đã mất! ➔ Hoãn 2.0s...")
                     time.sleep(2.0)
@@ -5595,7 +5865,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # Buff Skill 3 HP / 1 SP
             self.after(0, self.log_info, f"🔄 [{mode_name} - Lượt {loop_idx}] Kích hoạt Chuỗi Buff 3 HP / 1 SP...")
-            self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=mode_name)
+            if use_auto_buff:
+                self._execute_buff_skill_cycle_auto(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}")
+            else:
+                self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}", is_nhi_kieu=True)
 
             if should_stop(): return
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 4.3: Quét f_vaotran.png...")
@@ -5619,7 +5892,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # Buff Skill 3 HP / 1 SP
             self.after(0, self.log_info, f"🔄 [{mode_name} - Lượt {loop_idx}] Kích hoạt Chuỗi Buff 3 HP / 1 SP...")
-            self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=mode_name)
+            if use_auto_buff:
+                self._execute_buff_skill_cycle_auto(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}")
+            else:
+                self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}", is_nhi_kieu=True)
 
             if should_stop(): return
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 5.4: Quét f_vaotran.png...")
@@ -5643,7 +5919,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # Buff Skill 3 HP / 1 SP
             self.after(0, self.log_info, f"🔄 [{mode_name} - Lượt {loop_idx}] Kích hoạt Chuỗi Buff 3 HP / 1 SP...")
-            self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=mode_name)
+            if use_auto_buff:
+                self._execute_buff_skill_cycle_auto(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}")
+            else:
+                self._execute_buff_skill_cycle(dnconsole_path, tab_index, log_tag=f"Nhị Kiều - {mode_name}", is_nhi_kieu=True)
 
             if should_stop(): return
             self.after(0, self.log_info, f"👉 [{mode_name} - Lượt {loop_idx}] Giai Đoạn 6.4: Quét f_vaotran.png...")
@@ -5665,7 +5944,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
             # 7.3: Kiểm tra hoàn thành theo mốc tầng
             self.after(0, self.log_info, f"👁️ [{mode_name} - Lượt {loop_idx}] Giai Đoạn 7.3: Quét kiểm tra hoàn thành...")
-            target_img = "card_d/nhikieu/d_dinh.png" if mode_name in ["Trệt - 10", "Trệt"] else "card_d/nhikieu/d_thap14.png"
+            if target_finish_img:
+                target_img = target_finish_img
+            else:
+                target_img = "card_d/nhikieu/d_dinh.png" if mode_name in ["Auto", "Trệt - 10", "Trệt"] else "card_d/nhikieu/d_thap14.png"
             
             found_finish = False
             start_chk = time.time()
@@ -5685,6 +5967,169 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 self.after(0, self.log_info, f"✅ [NHỊ KIỀU] Đã hoàn thành mốc '{mode_name}' thành công!")
                 break
 
+    def _check_team_and_assign_quan_su_stage2(self, dnconsole_path: str, tab_index: str):
+        """
+        Kiểm tra đủ đội hình & Chỉ định Quân Sư lần 2 (Chuẩn bị leo Tháp 11 ➔ 14):
+        - Mở giao diện Đội: Quét card_b/b_doi.png (85%, ROI 735, 405, 1280, 720). Nếu chưa thấy ➔ Tap menu (1213, 648) mở menu ➔ Tap b_doi.png (hoãn 0.4s).
+        - Kiểm tra các nhân vật trong Danh Sách B: Quét nhanvat/40npc2k/{char}.png hoặc nhanvat/{char}.png trong ROI (305, 150, 1105, 625).
+        - Nếu số lượng có mặt < min(4, len(list_B)) (thiếu người):
+          + Đóng menu / popup nếu có.
+          + Gọi _run_card_E_action_1(dnconsole_path, tab_index, list_B) để mời đủ người và tự gán quân sư.
+        - Nếu đã đủ người ngay từ đầu:
+          + Gán Quân Sư nếu var_E_quan_su được tích.
+          + Đóng giao diện Đội (login_x + menu 1213, 648).
+        """
+        if self._should_stop_card_D(): return
+
+        list_B = list(getattr(self, 'list_E_B', []))
+        if not list_B:
+            self.after(0, self.log_info, "ℹ️ [Nhị Kiều Auto - Chuyển Tiếp] [Danh Sách B] chưa có nhân vật nào ➔ Bỏ qua bước kiểm tra đội.")
+            return
+
+        # 1. Mở giao diện Đội
+        self.after(0, self.log_info, "👁️ [Nhị Kiều Auto - Chuyển Tiếp] Quét tìm 'card_b/b_doi.png' (85%, ROI 735, 405, 1280, 720)...")
+        b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(735, 405, 1280, 720))
+        if b_doi_x is not None and b_doi_y is not None:
+            self.after(0, self.log_info, f"🎯 Phát hiện 'card_b/b_doi.png' tại ({b_doi_x}, {b_doi_y})! Tap click ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+            time.sleep(0.4)
+        else:
+            self.after(0, self.log_info, "👉 Chưa thấy 'card_b/b_doi.png' ➔ Tap nút menu (1213, 648) mở menu ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+            time.sleep(0.4)
+            if self._should_stop_card_D(): return
+            b_doi_x, b_doi_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_b/b_doi.png", threshold=0.85, region=(735, 405, 1280, 720))
+            if b_doi_x is not None and b_doi_y is not None:
+                self.after(0, self.log_info, f"🎯 Phát hiện 'card_b/b_doi.png' tại ({b_doi_x}, {b_doi_y})! Tap click ➔ Hoãn 0.4s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {b_doi_x} {b_doi_y}"])
+                time.sleep(0.4)
+
+        if self._should_stop_card_D(): return
+
+        # 2. Quét nhận diện thành viên có mặt trong đội
+        present_members = []
+        missing_members = []
+        for char_name in list_B:
+            if self._should_stop_card_D(): return
+            chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
+            if chk_x is None or chk_y is None:
+                chk_x, chk_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{char_name}.png", threshold=0.80, region=(305, 150, 1105, 625))
+            if chk_x is not None and chk_y is not None:
+                present_members.append(char_name)
+            else:
+                missing_members.append(char_name)
+
+        target_count = min(4, len(list_B))
+        if len(present_members) < target_count:
+            self.after(0, self.log_info, f"⚠️ [Nhị Kiều Auto] Đội hình thiếu người ({len(present_members)}/{target_count}, thiếu: {', '.join(missing_members)}) ➔ Chuyển quyền qua Card E để mời đủ người...")
+            # Đóng bảng giao diện Đội trước khi chuyển qua Card E để Card E tự mở và quản lý
+            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
+            if lx_x is not None and lx_y is not None:
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                time.sleep(0.4)
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+            time.sleep(0.4)
+
+            # Gọi quy trình mời của Card E (Thao tác 1)
+            self._run_card_E_action_1(dnconsole_path, tab_index, list_B)
+        else:
+            self.after(0, self.log_info, f"✅ [Nhị Kiều Auto] Đội hình đã ĐỦ {len(present_members)}/{target_count} thành viên ({', '.join(present_members)})!")
+            # Chỉ định Quân Sư nếu ô Quân Sư được tích
+            if hasattr(self, 'var_E_quan_su') and self.var_E_quan_su.get():
+                quan_su_char = self.combo_E_quan_su.get() if hasattr(self, 'combo_E_quan_su') else ""
+                if quan_su_char and quan_su_char != "(Trống)":
+                    self.after(0, self.log_info, f"👑 [Quân Sư] Quét nhận diện Quân Sư '{quan_su_char}'...")
+                    qs_x, qs_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/40npc2k/{quan_su_char}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                    if qs_x is None or qs_y is None:
+                        qs_x, qs_y = self._find_template_on_screen(dnconsole_path, tab_index, f"nhanvat/{quan_su_char}.png", threshold=0.80, region=(305, 150, 1105, 625))
+                    if qs_x is not None and qs_y is not None:
+                        qs_btn_x = qs_x + 155
+                        qs_btn_y = qs_y + 40
+                        self.after(0, self.log_info, f"🎯 Phát hiện '{quan_su_char}' tại ({qs_x}, {qs_y}) ➔ Tap nút Quân Sư ({qs_btn_x}, {qs_btn_y}) ➔ Hoãn 0.5s...")
+                        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {qs_btn_x} {qs_btn_y}"])
+                        time.sleep(0.5)
+
+            # Đóng giao diện Đội
+            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
+            if lx_x is not None and lx_y is not None:
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                time.sleep(0.4)
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+            time.sleep(0.4)
+
+    def _run_nhi_kieu_tang_auto(self, dnconsole_path: str, tab_index: str, card_name: str = "40 NPC"):
+        """
+        QUY TRÌNH MỐC AUTO (NHỊ KIỀU):
+        - Chặng 1: Chạy Giai đoạn 1 ➔ 3, sau đó lặp Giai đoạn 4 ➔ 7 (với Chuỗi Buff thường) đến khi thấy d_dinh.png ➔ Hoãn 5.0s.
+        - Thao tác Quân Sư lần 1: Mở Đội, gán Quân Sư nếu var_E_quan_su được tích, đóng Đội ➔ Hoãn 5.0s.
+        - Chuỗi Buff Auto: Kích hoạt chuỗi buff 3 HP / 1 SP riêng của Mốc Auto (_execute_buff_skill_cycle_auto).
+        - Chuyển tiếp Tháp 11: Quét d_thap11.png mỗi 1.0s ➔ Thấy ➔ Hoãn 20.0s.
+        - Kiểm tra Đội & Quân Sư lần 2: Mở Đội, kiểm tra thành viên list_B, nếu thiếu mời qua Card E, đủ thì gán Quân Sư, đóng Đội ➔ Hoãn 5.0s.
+        - Chặng 2 (Tháp 11 ➔ Tháp 14): Chạy thẳng vòng lặp Giai đoạn 4 ➔ 7 (dùng Chuỗi Buff thường) đến khi thấy d_thap14.png ➔ Hoàn thành!
+        """
+        if self._should_stop_card_D(): return
+
+        # ---------------- CHẶNG 1: TRỆT ➔ ĐỈNH THÁP 10 ----------------
+        self.after(0, self.log_info, "🏰 [Nhị Kiều Auto - Chặng 1] Bắt đầu Chặng 1: Trệt ➔ Đỉnh Tháp 10...")
+        self._run_nhi_kieu_tang_tret_10(
+            dnconsole_path, tab_index, loop_count=0, mode_name="Auto - Chặng 1",
+            run_stages_1_to_3=True, only_stages_1_to_3=False, check_until_dinh=True,
+            card_name=card_name, use_auto_buff=False, target_finish_img="card_d/nhikieu/d_dinh.png"
+        )
+        if self._should_stop_card_D(): return
+
+        self.after(0, self.log_info, "⏳ [Nhị Kiều Auto] Đã lên Đỉnh Tháp 10 ➔ Hoãn 5.0s...")
+        if self._sleep_with_stop_check(5.0): return
+
+        # ---------------- THAO TÁC QUÂN SƯ LẦN 1 ----------------
+        self.after(0, self.log_info, "👑 [Nhị Kiều Auto] Bắt đầu Thao tác Quân Sư lần 1...")
+        self._assign_quan_su_in_team(dnconsole_path, tab_index)
+        if self._should_stop_card_D(): return
+
+        # Hoãn 5 giây sau khi thao tác quân sư lần 1 xong
+        self.after(0, self.log_info, "⏳ [Nhị Kiều Auto] Hoãn 5.0s sau Quân Sư lần 1 trước khi kích hoạt Chuỗi Buff Auto...")
+        if self._sleep_with_stop_check(5.0): return
+
+        # ---------------- KÍCH HOẠT CHUỖI BUFF AUTO ----------------
+        self.after(0, self.log_info, "🔄 [Nhị Kiều Auto] Kích hoạt Chuỗi Buff 3 HP / 1 SP Auto...")
+        self._execute_buff_skill_cycle_auto(dnconsole_path, tab_index, log_tag="Nhị Kiều Auto - Đỉnh 10")
+        if self._should_stop_card_D(): return
+
+        # ---------------- CHUYỂN TIẾP THÁP 11 ----------------
+        self.after(0, self.log_info, "👁️ [Nhị Kiều Auto] Quét tìm 'card_d/nhikieu/d_thap11.png' (80%, ROI 1060, 0, 1280, 40) mỗi 1.0s...")
+        while not self._should_stop_card_D():
+            t11_x, t11_y = self._find_template_on_screen(
+                dnconsole_path, tab_index, "card_d/nhikieu/d_thap11.png",
+                threshold=0.80, region=(1060, 0, 1280, 40)
+            )
+            if t11_x is not None and t11_y is not None:
+                self.after(0, self.log_info, f"🎯 Mắt thần phát hiện 'card_d/nhikieu/d_thap11.png' tại ({t11_x}, {t11_y}) ➔ Hoãn 20.0s chuẩn bị...")
+                break
+            time.sleep(1.0)
+
+        if self._should_stop_card_D(): return
+        if self._sleep_with_stop_check(20.0): return
+
+        # ---------------- KIỂM TRA ĐỦ ĐỘI & QUÂN SƯ LẦN 2 ----------------
+        self.after(0, self.log_info, "👥 [Nhị Kiều Auto] Kiểm tra đội hình & Chỉ định Quân Sư lần 2...")
+        self._check_team_and_assign_quan_su_stage2(dnconsole_path, tab_index)
+        if self._should_stop_card_D(): return
+
+        self.after(0, self.log_info, "⏳ [Nhị Kiều Auto] Hoãn 5.0s trước khi bắt đầu Chặng 2 (Tháp 11 ➔ 14)...")
+        if self._sleep_with_stop_check(5.0): return
+
+        # ---------------- CHẶNG 2: THÁP 11 ➔ THÁP 14 ----------------
+        self.after(0, self.log_info, "🚀 [Nhị Kiều Auto - Chặng 2] Bắt đầu Chặng 2: Tháp 11 ➔ Tháp 14 (Vòng lặp GĐ 4-7 với Chuỗi Buff thường)...")
+        self._run_nhi_kieu_tang_tret_10(
+            dnconsole_path, tab_index, loop_count=0, mode_name="Auto - Chặng 2",
+            run_stages_1_to_3=False, only_stages_1_to_3=False, check_until_dinh=True,
+            card_name=card_name, use_auto_buff=False, target_finish_img="card_d/nhikieu/d_thap14.png"
+        )
+        if self._should_stop_card_D(): return
+
+        self.after(0, self.log_info, "🎉 [Nhị Kiều Auto] Đã hoàn thành toàn diện toàn bộ quy trình Auto Nhị Kiều (Trệt ➔ Tháp 14)!")
+        self.after(0, lambda: self._send_notification("🎉 Auto Nhị Kiều Hoàn Thành", "Đã hoàn thành toàn bộ leo tháp Nhị Kiều đến Tháp 14 thành công!"))
+
     def _run_nhi_kieu_tang(self, dnconsole_path: str, tab_index: str, selected_tang: str, card_name: str = "40 NPC"):
         """THAO TÁC: TẦNG / ĐÀI (NHỊ KIỀU)"""
         if self._should_stop_card_D(): return
@@ -5692,7 +6137,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         prefix_tag = "[40 NPC / 2K - Tầng]"
         self.after(0, self.log_info, f"🚀 {prefix_tag} Khởi chạy ô Tầng (Mốc: '{selected_tang}')...")
 
-        if selected_tang in ["Trệt - 10", "Trệt"]:
+        if selected_tang == "Auto":
+            self._run_nhi_kieu_tang_auto(dnconsole_path, tab_index, card_name=card_name)
+        elif selected_tang in ["Trệt - 10", "Trệt"]:
             # Gộp thao tác Trệt (Giai đoạn 1 -> 3) và 1-10 (Vòng lặp Giai đoạn 4 -> 7 đến khi thấy e_dinh.png)
             self._run_nhi_kieu_tang_tret_10(dnconsole_path, tab_index, loop_count=0, mode_name="Trệt - 10", run_stages_1_to_3=True, only_stages_1_to_3=False, check_until_dinh=True, card_name=card_name)
         elif selected_tang == "11 - 14":
@@ -5723,56 +6170,65 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
     # =========================================================================
     def _execute_nhan_thu(self, dnconsole_path: str, tab_index: str):
         """QUY TRÌNH NHẬN THƯ (BƯỚC 0 ➔ BƯỚC 1 ➔ BƯỚC 2)"""
-        self.after(0, self.log_info, "📬 [Tự Động Nhận Thư] Bắt đầu thực thi quy trình Nhận Thư...")
+        if getattr(self, '_is_nhan_thu_running', False):
+            self.after(0, self.log_info, "ℹ️ [Tự Động Nhận Thư] Tiến trình Nhận Thư đang chạy, vui lòng chờ...")
+            return
 
-        # Bước 0: Quét đóng quảng cáo / popup
-        self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 0] Quét tìm 'card_top/login/login_x.png' (75%, ROI 990,50,1165,200)...")
-        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
-        if lx_x is not None and lx_y is not None:
-            self.after(0, self.log_info, f"🎯 Phát hiện 'card_top/login/login_x.png' tại ({lx_x}, {lx_y})! Tap đóng popup ➔ Hoãn 0.4s...")
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
-            time.sleep(0.4)
+        self._is_nhan_thu_running = True
+        try:
+            self.after(0, self.log_info, "📬 [Tự Động Nhận Thư] Bắt đầu thực thi quy trình Nhận Thư...")
 
-        # Bước 1: Mở menu và bấm nút Thư
-        self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 1] Quét tìm nút Thư 'card_top/login/login_thu.png' (80%, ROI 735,405,1280,720)...")
-        v_x, v_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_thu.png", threshold=0.80, region=(735, 405, 1280, 720))
-        if v_x is not None and v_y is not None:
-            self.after(0, self.log_info, f"🎯 Phát hiện nút Thư tại ({v_x}, {v_y})! Tap click trực tiếp ➔ Hoãn 0.4s...")
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {v_x} {v_y}"])
-            time.sleep(0.4)
-        else:
-            self.after(0, self.log_info, "👉 Chưa thấy nút Thư ➔ Tap nút xanh lá mở menu (1213, 648) ➔ Hoãn 0.4s...")
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
-            time.sleep(0.4)
+            # Bước 0: Quét đóng quảng cáo / popup
+            self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 0] Quét tìm 'card_top/login/login_x.png' (75%, ROI 990,50,1165,200)...")
+            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
+            if lx_x is not None and lx_y is not None:
+                self.after(0, self.log_info, f"🎯 Phát hiện 'card_top/login/login_x.png' tại ({lx_x}, {lx_y})! Tap đóng popup ➔ Hoãn 0.4s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                time.sleep(0.4)
+
+            # Bước 1: Mở menu và bấm nút Thư
+            self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 1] Quét tìm nút Thư 'card_top/login/login_thu.png' (80%, ROI 735,405,1280,720)...")
             v_x, v_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_thu.png", threshold=0.80, region=(735, 405, 1280, 720))
             if v_x is not None and v_y is not None:
                 self.after(0, self.log_info, f"🎯 Phát hiện nút Thư tại ({v_x}, {v_y})! Tap click trực tiếp ➔ Hoãn 0.4s...")
                 self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {v_x} {v_y}"])
                 time.sleep(0.4)
             else:
-                self.after(0, self.log_info, "⚠️ Chưa quét thấy biểu tượng nút Thư 'login_thu.png' sau khi mở menu.")
+                self.after(0, self.log_info, "👉 Chưa thấy nút Thư ➔ Tap nút xanh lá mở menu (1213, 648) ➔ Hoãn 0.4s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+                time.sleep(0.4)
+                v_x, v_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_thu.png", threshold=0.80, region=(735, 405, 1280, 720))
+                if v_x is not None and v_y is not None:
+                    self.after(0, self.log_info, f"🎯 Phát hiện nút Thư tại ({v_x}, {v_y})! Tap click trực tiếp ➔ Hoãn 0.4s...")
+                    self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {v_x} {v_y}"])
+                    time.sleep(0.4)
+                else:
+                    self.after(0, self.log_info, "⚠️ Chưa quét thấy biểu tượng nút Thư 'login_thu.png' sau khi mở menu ➔ Dừng nhận thư.")
+                    return
 
-        # Bước 2: Bấm chọn Nhận Thư
-        self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (365, 575) ➔ Hoãn 0.4s...")
-        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 365 575"])
-        time.sleep(0.4)
-
-        self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (540, 575) ➔ Hoãn 0.4s...")
-        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 540 575"])
-        time.sleep(0.4)
-
-        self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 2] Quét tìm 'card_top/login/login_x.png' (75%, ROI 990,50,1165,200)...")
-        lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
-        if lx_x is not None and lx_y is not None:
-            self.after(0, self.log_info, f"🎯 Phát hiện 'card_top/login/login_x.png' tại ({lx_x}, {lx_y})! Tap đóng bảng thư ➔ Hoãn 0.4s...")
-            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+            # Bước 2: Bấm chọn Nhận Thư
+            self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (365, 575) ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 365 575"])
             time.sleep(0.4)
 
-        self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (1213, 648) ➔ Hoãn 0.4s...")
-        self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
-        time.sleep(0.4)
+            self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (540, 575) ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 540 575"])
+            time.sleep(0.4)
 
-        self.after(0, self.log_info, "✅ [Tự Động Nhận Thư] Đã hoàn thành toàn bộ thao tác Nhận Thư!.")
+            self.after(0, self.log_info, "👁️ [Nhận Thư - Bước 2] Quét tìm 'card_top/login/login_x.png' (75%, ROI 990,50,1165,200)...")
+            lx_x, lx_y = self._find_template_on_screen(dnconsole_path, tab_index, "card_top/login/login_x.png", threshold=0.75, region=(990, 50, 1165, 200))
+            if lx_x is not None and lx_y is not None:
+                self.after(0, self.log_info, f"🎯 Phát hiện 'card_top/login/login_x.png' tại ({lx_x}, {lx_y})! Tap đóng bảng thư ➔ Hoãn 0.4s...")
+                self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", f"shell input tap {lx_x} {lx_y}"])
+                time.sleep(0.4)
+
+            self.after(0, self.log_info, "👉 [Nhận Thư - Bước 2] Tap tọa độ (1213, 648) ➔ Hoãn 0.4s...")
+            self._exec_cmd([dnconsole_path, "adb", "--index", str(tab_index), "--command", "shell input tap 1213 648"])
+            time.sleep(0.4)
+
+            self.after(0, self.log_info, "✅ [Tự Động Nhận Thư] Đã hoàn thành toàn bộ thao tác Nhận Thư!")
+        finally:
+            self._is_nhan_thu_running = False
 
     def _worker_auto_mail_daemon(self):
         """Luồng ngầm chạy suốt độc lập: Tự động kích hoạt sau 60 giây kể từ khi mở tool, canh đúng 10H01 Tối (22:01) mỗi ngày để nhận thư (không bị nút Stop dừng)"""
@@ -5793,6 +6249,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                         dnconsole_path = os.path.join(self.ld_path, "ldconsole.exe")
                         if not os.path.exists(dnconsole_path):
                             dnconsole_path = os.path.join(self.ld_path, "dnconsole.exe")
+
+                        if not os.path.exists(dnconsole_path):
+                            self.after(0, self.log_error, f"⚠️ Không tìm thấy ldconsole/dnconsole tại: {self.ld_path}")
+                            time.sleep(5.0)
+                            continue
 
                         tab_name, tab_index = self._get_selected_ld_info()
                         if tab_index is None:
@@ -5890,7 +6351,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                                 target_region = (155, 95, 305, 625)
                             elif any(k in tmpl_lower for k in ["a_boss", "a_hetluot"]):
                                 target_region = (275, 540, 1280, 720)
-                            elif any(k in tmpl_lower for k in ["a_dung", "c_digioi", "d_tret", "d_daidien", "d_dinh", "d_tang", "e_dinh", "pbmap", "pb20map", "pb50map", "pb80map", "pb110map", "pb140map", "d_loidai"]):
+                            elif any(k in tmpl_lower for k in ["a_dung", "c_digioi", "d_tret", "d_daidien", "d_dinh", "d_tang", "e_dinh", "pbmap", "pb20map", "pb50map", "pb80map", "pb110map", "pb140map", "d_loidai", "d_thap11", "d_thap14"]):
                                 target_region = (1060, 0, 1280, 40)
                             elif any(k in tmpl_lower for k in ["a_veboss", "a_khoa"]):
                                 target_region = (730, 165, 1105, 610)
@@ -5907,13 +6368,15 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                             elif "40npc2k" in tmpl_lower:
                                 target_region = (305, 150, 1105, 625)
                             elif "d_35" in tmpl_lower:
-                                target_region = (1020, 265, 1125, 295)
+                                target_region = (175, 220, 265, 245)
                             elif any(k in tmpl_lower for k in ["d_dichuyen", "d_conglt", "d_vaolt"]):
                                 target_region = (0, 400, 980, 720)
                             elif any(k in tmpl_lower for k in ["d_chien", "d_tieptheo"]):
                                 target_region = (280, 490, 1280, 720)
                             elif any(k in tmpl_lower for k in ["d_vaotran", "d_xacdinh"]):
                                 target_region = (275, 540, 980, 670)
+                            elif "d_hoanthanh" in tmpl_lower:
+                                target_region = (905, 0, 985, 70)
                             elif any(k in tmpl_lower for k in ["a_sukien", "a_tui", "b_doi", "b_pb", "c_ai", "c_vitri"]):
                                 target_region = (730, 405, 1200, 720)
 
@@ -5942,6 +6405,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                             template_bgr = cv2.cvtColor(template, cv2.COLOR_BGRA2BGR)
                             if np.any(alpha_mask < 255):
                                 res = cv2.matchTemplate(search_screen, template_bgr, cv2.TM_CCOEFF_NORMED, mask=alpha_mask)
+                                res = np.nan_to_num(res, nan=-1.0)
                             else:
                                 res = cv2.matchTemplate(search_screen, template_bgr, cv2.TM_CCOEFF_NORMED)
                         else:
@@ -5979,8 +6443,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                             center_x = offset_x + max_loc[0] + w // 2
                             center_y = offset_y + max_loc[1] + h // 2
 
-                            # Kiểm tra độ tươi sáng/màu sắc (tránh nhận nhầm ảnh nút bị tối/mờ/vô hiệu hóa)
-                            is_strict_color = check_color or ("dichuyen" in template_filename.lower())
+                            # Kiểm tra độ tươi sáng/màu sắc (chỉ kích hoạt khi check_color=True)
+                            is_strict_color = check_color
                             if is_strict_color:
                                 try:
                                     crop_x = offset_x + max_loc[0]

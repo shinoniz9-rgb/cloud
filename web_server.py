@@ -859,6 +859,7 @@ HTML_PAGE = """<!DOCTYPE html>
                         <div style="margin-top:6px;">
                             <label style="display:block; font-size:0.72rem; color:#9CA3AF; margin-bottom:4px; white-space:nowrap;">Mốc tầng:</label>
                             <select id="combo_D_tang" style="width:100%; font-size:0.78rem; padding:4px 4px;" onchange="onComboChanged('D_tang', this.value)">
+                                <option value="Auto" selected>Auto</option>
                                 <option value="Trệt - 10">Trệt - 10</option><option value="11 - 14">11 - 14</option>
                             </select>
                         </div>
@@ -1250,23 +1251,23 @@ HTML_PAGE = """<!DOCTYPE html>
                 }
             }
 
-            // 2. Quy tắc Tổ Đội (D2) -> Khóa / Mở Quân Sư ở Card E
-            if (chkD2 && chkEQS) {
-                const isD2 = chkD2.checked;
-                chkEQS.disabled = !isD2;
+            // 2. Quy tắc Tổ Đội (D2) hoặc Nhị Kiều (D4) -> Khóa / Mở Quân Sư ở Card E
+            const isQSActive = (chkD2 && chkD2.checked) || (chkD4 && chkD4.checked);
+            if (chkEQS) {
+                chkEQS.disabled = !isQSActive;
                 const qsLabel = chkEQS.closest('.chk-label');
                 if (qsLabel) {
-                    qsLabel.style.opacity = isD2 ? '1' : '0.35';
-                    qsLabel.style.pointerEvents = isD2 ? 'auto' : 'none';
+                    qsLabel.style.opacity = isQSActive ? '1' : '0.35';
+                    qsLabel.style.pointerEvents = isQSActive ? 'auto' : 'none';
                 }
                 if (comboEQS) {
-                    comboEQS.disabled = !isD2;
-                    comboEQS.style.opacity = isD2 ? '1' : '0.35';
+                    comboEQS.disabled = !isQSActive;
+                    comboEQS.style.opacity = isQSActive ? '1' : '0.35';
                 }
             }
 
-            // 3. Quy tắc mở danh sách thành viên Card E (khi tích Đội ở PB hoặc Tổ Đội ở 40NPC)
-            const isDoiActive = (chkBdoi && chkBdoi.checked) || (chkD2 && chkD2.checked);
+            // 3. Quy tắc mở danh sách thành viên Card E (khi tích Đội ở PB, Tổ Đội ở 40NPC, hoặc Nhị Kiều)
+            const isDoiActive = (chkBdoi && chkBdoi.checked) || (chkD2 && chkD2.checked) || (chkD4 && chkD4.checked);
             if (listABox && listBBox) {
                 listABox.style.opacity = isDoiActive ? '1' : '0.35';
                 listABox.style.pointerEvents = isDoiActive ? 'auto' : 'none';
@@ -1459,7 +1460,7 @@ class ToolWebRequestHandler(BaseHTTPRequestHandler):
                 "B_team_char": app.combo_B_team_char.get() if hasattr(app, 'combo_B_team_char') else "Xuất Chiến",
                 "D_team_char": app.combo_D_team_char.get() if hasattr(app, 'combo_D_team_char') else "Xuất Chiến",
                 "D_chien_dau": app.combo_D_chien_dau.get() if hasattr(app, 'combo_D_chien_dau') else "Auto",
-                "D_tang": app.combo_D_tang.get() if hasattr(app, 'combo_D_tang') else "Trệt - 10",
+                "D_tang": app.combo_D_tang.get() if hasattr(app, 'combo_D_tang') else "Auto",
                 "E_quan_su": app.combo_E_quan_su.get() if hasattr(app, 'combo_E_quan_su') else "(Trống)",
                 "buff": app.combo_buff.get() if hasattr(app, 'combo_buff') else "Buff HP"
             }
